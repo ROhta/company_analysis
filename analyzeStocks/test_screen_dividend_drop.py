@@ -322,7 +322,7 @@ class TestMainViaMonkeypatch(unittest.TestCase):
         """--max-rps 0 でも ZeroDivisionError にならず main が 0 を返す。"""
         fake = self._make_client_with_hit()
         with unittest.mock.patch.object(sdd, "JQuantsClient", self._make_factory(fake)):
-            result = sdd.main(["--month", "2025-09", "--max-rps", "0"])
+            result = sdd.main(["--month", "2025-09", "--max-rps", "0", "--no-cache"])
         self.assertEqual(result, 0)
 
     def test_csv_option_writes_file_and_returns_zero(self):
@@ -332,7 +332,7 @@ class TestMainViaMonkeypatch(unittest.TestCase):
             path = tmp.name
         try:
             with unittest.mock.patch.object(sdd, "JQuantsClient", self._make_factory(fake)):
-                result = sdd.main(["--month", "2025-09", "--csv", path])
+                result = sdd.main(["--month", "2025-09", "--csv", path, "--no-cache"])
             self.assertEqual(result, 0)
             with open(path, newline="", encoding="utf-8-sig") as f:
                 reader = csv.reader(f)
@@ -350,8 +350,46 @@ class TestMainViaMonkeypatch(unittest.TestCase):
                 return []
 
         with unittest.mock.patch.object(sdd, "JQuantsClient", self._make_factory(RaisingClient())):
-            result = sdd.main(["--month", "2025-09"])
+            result = sdd.main(["--month", "2025-09", "--no-cache"])
         self.assertEqual(result, 1)
+
+
+class TestResolveMinInterval(unittest.TestCase):
+    """resolve_min_interval() のレートマッピングを検証する。"""
+
+    def test_plan_free_default_rate(self):
+        """--plan free: 0.08 req/sec → min_interval ≈ 12.5s"""
+        mi = sdd.resolve_min_interval("free", None)
+        self.assertAlmostEqual(mi, 1.0 / 0.08, places=5)
+
+    def test_plan_light_rate(self):
+        mi = sdd.resolve_min_interval("light", None)
+        self.assertAlmostEqual(mi, 1.0 / 0.9, places=5)
+
+    def test_plan_standard_rate(self):
+        mi = sdd.resolve_min_interval("standard", None)
+        self.assertAlmostEqual(mi, 1.0 / 1.8, places=5)
+
+    def test_plan_premium_rate(self):
+        mi = sdd.resolve_min_interval("premium", None)
+        self.assertAlmostEqual(mi, 1.0 / 8.0, places=5)
+
+    def test_max_rps_overrides_plan(self):
+        """--max-rps 指定時は plan より優先される。"""
+        mi = sdd.resolve_min_interval("free", 2.0)
+        self.assertAlmostEqual(mi, 0.5, places=5)
+
+    def test_max_rps_zero_yields_zero_interval(self):
+        """--max-rps 0 は min_interval=0（ZeroDivisionError なし）。"""
+        mi = sdd.resolve_min_interval("free", 0.0)
+        self.assertEqual(mi, 0.0)
+
+    def test_plan_takes_effect_when_max_rps_is_none(self):
+        """max_rps=None のとき plan のレートが使われる。"""
+        mi_free = sdd.resolve_min_interval("free", None)
+        mi_premium = sdd.resolve_min_interval("premium", None)
+        # premium は free より速い（min_interval が小さい）
+        self.assertLess(mi_premium, mi_free)
 
 
 if __name__ == "__main__":

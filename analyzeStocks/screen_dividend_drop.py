@@ -8,7 +8,20 @@ import sys
 import urllib.error
 
 import calendar_logic as cl
-from jquants_client import JQuantsClient, JQuantsError
+from jquants_client import CachingClient, JQuantsClient, JQuantsError
+
+# スクリプトのあるディレクトリ基準のキャッシュディレクトリ（固定）
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_DEFAULT_CACHE_DIR = os.path.join(_SCRIPT_DIR, ".jq_cache")
+
+# プラン別の安全な既定レート（各プラン上限の約9割）
+# Free=5/分, Light=60/分, Standard=120/分, Premium=500/分 に対応
+_PLAN_RPS = {
+    "free": 0.08,
+    "light": 0.9,
+    "standard": 1.8,
+    "premium": 8.0,
+}
 
 TARGET_MARKETS = ("プライム", "スタンダード")
 BARS_PAD_DAYS = 20  # 指定日算出のため基準日前後に確保する暦日
@@ -123,6 +136,16 @@ def write_csv(path, hits):
             writer.writerow([h["code"], h["name"], h["market"], h["kijitsu"]])
 
 
+def resolve_min_interval(plan, max_rps):
+    """プランと明示的 max_rps から min_interval（秒）を決定する純粋関数。
+
+    max_rps が None でなければそちらを優先。None なら plan のレートを使う。
+    rps が 0 以下のときは min_interval = 0.0（ペーシングなし）。
+    """
+    rps = max_rps if max_rps is not None else _PLAN_RPS.get(plan, _PLAN_RPS["free"])
+    return 1.0 / rps if rps > 0 else 0.0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="配当権利落ち後の下落銘柄スクリーニング")
     parser.add_argument("--month", help="対象の権利確定月 YYYY-MM(未指定なら約4ヶ月前)")
@@ -131,8 +154,26 @@ def main(argv=None):
     parser.add_argument("--csv", help="該当銘柄をCSV出力（コード/銘柄名/市場/指定日）")
     parser.add_argument("--limit", type=int, default=None,
                         help="候補barsの処理数を制限（開示日スキャンのコール数は減らない）")
-    parser.add_argument("--max-rps", type=float, default=3.0,
-                        help="APIリクエストの最大レート(req/sec)。レート制限緩和用（既定3.0）")
+    parser.add_argument(
+        "--plan",
+        choices=["free", "light", "standard", "premium"],
+        default="free",
+        help=("契約プラン（既定: free）。Freeは既定で十分遅いペース。"
+              "Light以上は --plan light 等を指定。"
+              "プラン別レート: free=0.08, light=0.9, standard=1.8, premium=8.0 req/sec"),
+    )
+    parser.add_argument(
+        "--max-rps",
+        type=float,
+        default=None,
+        help=("APIリクエストの最大レート(req/sec)。指定した場合 --plan より優先。"
+              "未指定なら --plan から決定"),
+    )
+    parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="ディスクキャッシュを無効化する",
+    )
     args = parser.parse_args(argv)
 
     if args.window < 1:
@@ -146,15 +187,28 @@ def main(argv=None):
         print("[info] --month未指定のため既定 {} を使用(範囲外なら--monthで指定)".format(target_month),
               file=sys.stderr)
 
+    min_interval = resolve_min_interval(args.plan, args.max_rps)
+    if args.max_rps is not None:
+        print("[info] レート: --max-rps {:.3f} req/sec (min_interval={:.3f}s)".format(
+            args.max_rps, min_interval), file=sys.stderr)
+    else:
+        print("[info] プラン: {} / レート: {:.3f} req/sec (min_interval={:.3f}s)".format(
+            args.plan, _PLAN_RPS[args.plan], min_interval), file=sys.stderr)
+
     try:
-        min_interval = 1.0 / args.max_rps if args.max_rps > 0 else 0.0
         client = JQuantsClient(api_key=api_key, min_interval=min_interval)
+        if not args.no_cache:
+            client = CachingClient(client, _DEFAULT_CACHE_DIR)
+            print("[info] キャッシュ有効: {}".format(_DEFAULT_CACHE_DIR), file=sys.stderr)
+        else:
+            print("[info] キャッシュ無効", file=sys.stderr)
         hits = run(client, target_month, args.threshold, args.window, limit=args.limit)
     except JQuantsError as e:
         print("[error] {}".format(e), file=sys.stderr)
         return 1
     except (urllib.error.URLError, TimeoutError) as e:
-        print("[error] ネットワーク失敗(timeout等): {}。--max-rps を下げて再試行してください".format(e), file=sys.stderr)
+        print("[error] ネットワーク失敗(timeout等): {}。--plan/--max-rps を下げて再試行してください".format(e),
+              file=sys.stderr)
         return 1
     except (ValueError, KeyError) as e:
         print("[error] APIレスポンスの形式が想定外です: {}".format(e), file=sys.stderr)
