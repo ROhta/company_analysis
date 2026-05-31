@@ -22,16 +22,38 @@ def build_market_index(master_rows):
     return index
 
 
-def run(client, target_month, threshold, window):
-    """スクリーニング本体。該当銘柄の dict リストを返し、結果を標準出力する。"""
-    frm, to = cl.disclosure_scan_range(target_month)
-    summary_rows = client.fins_summary(from_=frm, to=to)
+def run(client, target_month, threshold, window, limit=None):
+    """スクリーニング本体。該当銘柄の dict リストを返し、結果を標準出力する。
+
+    limit: 候補イベントを先頭 N 件に制限する（None=全件）。大規模月での試験実行用。
+    """
+    # 開示日を1日ずつスキャンして決算サマリ行を蓄積する
+    dates = cl.disclosure_dates(target_month)
+    summary_rows = []
+    for i, d in enumerate(dates, 1):
+        print("[info] 開示日スキャン {}/{}: {}".format(i, len(dates), d), file=sys.stderr)
+        rows = client.fins_summary(date=d)
+        summary_rows.extend(rows)
+
     events = cl.filter_events_by_month(cl.dividend_events(summary_rows), target_month)
+
+    if not events:
+        print("[info] {} に該当する配当イベントが見つかりませんでした。".format(target_month),
+              file=sys.stderr)
+        _print_results([], target_month, threshold)
+        return []
+
+    # limit で候補数を制限
+    if limit is not None:
+        events = events[:limit]
 
     market_index = build_market_index(client.equities_master())
 
+    total = len(events)
     hits = []
-    for ev in events:
+    for i, ev in enumerate(events, 1):
+        print("[info] 候補 {}/{}: {} 権利確定{}".format(
+            i, total, ev.code, ev.record_date), file=sys.stderr)
         if ev.code not in market_index:
             continue
         record = ev.record_date
@@ -90,6 +112,8 @@ def main(argv=None):
     parser.add_argument("--threshold", type=float, default=0.95)
     parser.add_argument("--window", type=int, default=10)
     parser.add_argument("--csv", help="中間候補リストCSVの出力先")
+    parser.add_argument("--limit", type=int, default=None,
+                        help="候補イベントを先頭N件に制限（規模が大きい月での試験実行用）")
     args = parser.parse_args(argv)
 
     api_key = os.environ.get("JQUANTS_API_KEY", "")
@@ -100,7 +124,7 @@ def main(argv=None):
 
     try:
         client = JQuantsClient(api_key=api_key)
-        hits = run(client, target_month, args.threshold, args.window)
+        hits = run(client, target_month, args.threshold, args.window, limit=args.limit)
     except JQuantsError as e:
         print("[error] {}".format(e), file=sys.stderr)
         return 1
