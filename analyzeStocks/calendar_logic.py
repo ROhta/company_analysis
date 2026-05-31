@@ -118,3 +118,33 @@ def analyze_drop(price_rows, kijitsu_date, window, threshold):
         ratio=min_close / ref_close,
         hit=min_close < threshold * ref_close,
     )
+
+
+def _month_end(year, month):
+    if month == 12:
+        return datetime.date(year, 12, 31)
+    return datetime.date(year, month + 1, 1) - datetime.timedelta(days=1)
+
+
+def _shift_month(year, month, delta):
+    """(year, month) を delta ヶ月ずらした (year, month) を返す。"""
+    index = (year * 12 + (month - 1)) + delta
+    return index // 12, index % 12 + 1
+
+
+def default_target_month(today):
+    """データ遅延を見越して today のおよそ4ヶ月前の年月 'YYYY-MM' を返す。"""
+    year, month = _shift_month(today.year, today.month, -4)
+    return "{:04d}-{:02d}".format(year, month)
+
+
+def disclosure_scan_range(year_month):
+    """対象月の権利確定イベントを拾うための開示日レンジ('YYYY-MM-DD','YYYY-MM-DD')。
+
+    対象月末から、配当が開示される猶予を見て +3ヶ月の月末まで。
+    """
+    year, month = (int(x) for x in year_month.split("-"))
+    start = _month_end(year, month)
+    end_year, end_month = _shift_month(year, month, 3)
+    end = _month_end(end_year, end_month)
+    return start.isoformat(), end.isoformat()

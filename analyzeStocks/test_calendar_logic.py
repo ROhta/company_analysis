@@ -26,6 +26,17 @@ class TestParseDate(unittest.TestCase):
         self.assertEqual(cl.parse_date("20250930"), datetime.date(2025, 9, 30))
 
 
+class TestTargetMonthHelpers(unittest.TestCase):
+    def test_default_target_month_is_about_four_months_back(self):
+        self.assertEqual(cl.default_target_month(datetime.date(2026, 5, 31)), "2026-01")
+        self.assertEqual(cl.default_target_month(datetime.date(2026, 2, 15)), "2025-10")
+
+    def test_disclosure_scan_range_covers_period_plus_three_months(self):
+        frm, to = cl.disclosure_scan_range("2025-09")
+        self.assertEqual(frm, "2025-09-30")   # 対象月末から
+        self.assertEqual(to, "2025-12-31")    # +3ヶ月の月末まで
+
+
 class TestAnalyzeDrop(unittest.TestCase):
     def _series(self):
         # 指定日=9/26(C=1636) 以降に 1610,1520,1490,null。既存zshの1636/1490を再現。
