@@ -1,7 +1,5 @@
 # analyzeStocks/test_screen_dividend_drop.py
-import datetime
 import io
-import json
 import unittest
 from contextlib import redirect_stdout
 
@@ -59,6 +57,21 @@ class TestMainSmoke(unittest.TestCase):
             hits = sdd.run(client, target_month="2025-09", threshold=0.95, window=10)
         self.assertEqual([h["code"] for h in hits], ["86970"])
         self.assertIn("テスト社", out.getvalue())
+
+    def test_no_hit_when_no_drop(self):
+        summary = [
+            {"Code": "86970", "DocType": "2QFinancialStatements_Consolidated_IFRS",
+             "CurPerType": "2Q", "CurPerEn": "2025-09-30", "DivFY": "", "Div2Q": "25.0"},
+        ]
+        master = [{"Code": "86970", "CoName": "テスト社", "MktNm": "プライム"}]
+        bars = {"86970": [
+            {"Date": "2025-09-24", "C": 1700.0},
+            {"Date": "2025-09-25", "C": 1690.0},
+            {"Date": "2025-09-26", "C": 1636.0},  # 指定日
+            {"Date": "2025-09-29", "C": 1600.0},  # 1636*0.95=1554.2 を下回らない
+        ]}
+        client = FakeClient(summary, master, bars)
+        self.assertEqual(sdd.run(client, "2025-09", threshold=0.95, window=10), [])
 
 
 if __name__ == "__main__":

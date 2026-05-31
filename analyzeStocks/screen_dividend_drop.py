@@ -77,7 +77,7 @@ def _print_results(hits, target_month, threshold):
 
 
 def write_csv(path, hits):
-    with open(path, "w", newline="", encoding="utf-8") as f:
+    with open(path, "w", newline="", encoding="utf-8-sig") as f:
         writer = csv.writer(f)
         writer.writerow(["コード", "銘柄名", "市場", "指定日"])
         for h in hits:
@@ -106,7 +106,11 @@ def main(argv=None):
         return 1
 
     if args.csv:
-        write_csv(args.csv, hits)
+        try:
+            write_csv(args.csv, hits)
+        except OSError as e:
+            print("[error] CSV出力失敗: {}".format(e), file=sys.stderr)
+            return 1
         print("[info] 中間候補リストを {} に出力しました".format(args.csv), file=sys.stderr)
     return 0
 
