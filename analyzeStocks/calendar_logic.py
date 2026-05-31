@@ -1,6 +1,6 @@
 """配当権利落ちスクリーニングの純粋ロジック（ネットワーク非依存）。"""
-import collections
 import datetime
+import typing
 
 
 def _to_float(value):
@@ -26,9 +26,11 @@ def parse_date(value):
     raise ValueError("parse_date: 予期しない日付形式 {!r}".format(value))
 
 
-DividendEvent = collections.namedtuple(
-    "DividendEvent", ["code", "record_date", "kind", "amount"]
-)
+class DividendEvent(typing.NamedTuple):
+    code: str
+    record_date: datetime.date
+    kind: typing.Literal["FY", "2Q"]  # 記録目的（現状 run では未消費）
+    amount: float                      # 記録目的（現状 run では未消費）
 
 
 def dividend_events(summary_rows):
@@ -83,19 +85,23 @@ def settlement_date(record_date, trading_days):
     return before[-2]
 
 
-AnalysisResult = collections.namedtuple(
-    "AnalysisResult", ["ref_close", "min_close", "min_date", "ratio", "hit", "window_used"]
-)
+class AnalysisResult(typing.NamedTuple):
+    ref_close: float
+    min_close: float
+    min_date: datetime.date
+    ratio: float
+    hit: bool
+    window_used: int
 
 
 def analyze_drop(price_rows, kijitsu_date, window, threshold):
-    """指定日終値と、指定日以降 window 営業日の最安値(null除外)で下落判定する。
+    """指定日終値と、指定日の翌営業日以降 window 営業日の最安値(null除外)で下落判定する。
 
     price_rows は {'Date','C'} のリスト。指定日が系列に無い/終値が欠損なら None。
     対象期間に有効な終値が無ければ None。
 
-    window_used: 指定日以降に実際に存在した取引日数（null含む）。window より小さい場合は
-    データ範囲端の可能性があり、判定の信頼性が低下する。
+    window_used: 指定日の翌営業日以降に実際に存在した取引日数（終値欠損=null含む）。
+    window より小さい場合はデータ範囲端の可能性があり、判定の信頼性が低下する。
     """
     rows = sorted(price_rows, key=lambda r: parse_date(r["Date"]))
     idx = None
