@@ -17,6 +17,10 @@ class TestToFloat(unittest.TestCase):
     def test_non_numeric_becomes_none(self):
         self.assertIsNone(cl._to_float("N/A"))
 
+    def test_zero_is_valid(self):
+        self.assertEqual(cl._to_float("0"), 0.0)
+        self.assertEqual(cl._to_float(0), 0.0)
+
 
 class TestParseDate(unittest.TestCase):
     def test_hyphenated(self):
@@ -24,6 +28,10 @@ class TestParseDate(unittest.TestCase):
 
     def test_compact(self):
         self.assertEqual(cl.parse_date("20250930"), datetime.date(2025, 9, 30))
+
+    def test_invalid_length_raises(self):
+        with self.assertRaises(ValueError):
+            cl.parse_date("2025103")
 
 
 class TestTargetMonthHelpers(unittest.TestCase):
@@ -82,7 +90,7 @@ class TestSettlementDate(unittest.TestCase):
             datetime.date(2025, 9, 26),
         )
 
-    def test_month_end_on_weekend(self):
+    def test_record_date_not_in_trading_days(self):
         # 8/31(2025)が日曜のケース: 取引日 8/27,28,29 → 8/31の2営業日前=8/28
         trading_days = [datetime.date(2025, 8, d) for d in (27, 28, 29)]
         self.assertEqual(

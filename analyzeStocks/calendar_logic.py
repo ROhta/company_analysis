@@ -21,7 +21,9 @@ def parse_date(value):
     s = str(value).strip()
     if "-" in s:
         return datetime.date.fromisoformat(s)
-    return datetime.date(int(s[0:4]), int(s[4:6]), int(s[6:8]))
+    if len(s) == 8:
+        return datetime.date(int(s[0:4]), int(s[4:6]), int(s[6:8]))
+    raise ValueError("parse_date: 予期しない日付形式 {!r}".format(value))
 
 
 DividendEvent = collections.namedtuple(
@@ -73,6 +75,7 @@ def settlement_date(record_date, trading_days):
 
     trading_days は date のリスト(順不同可)。record_date より前の取引日が
     2日に満たない場合は None。
+    trading_days に record_date 自体が含まれていても d < record_date で除外する。
     """
     before = sorted(d for d in trading_days if d < record_date)
     if len(before) < 2:
