@@ -7,6 +7,7 @@ import urllib.parse
 import urllib.request
 
 BASE_URL = "https://api.jquants.com/v2"
+DEFAULT_TIMEOUT = 30  # ネットワークハング防止のデフォルトタイムアウト（秒）
 
 
 class JQuantsError(RuntimeError):
@@ -19,7 +20,7 @@ def _default_fetch(url, headers):
     # ユーザー入力はクエリ値のみ。ホスト/スキームは外部から変更されないため SSRF リスクなし。
     req = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(req) as resp:
+        with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as resp:  # nosemgrep
             return resp.status, resp.read().decode("utf-8")
     except urllib.error.HTTPError as e:
         return e.code, e.read().decode("utf-8")
@@ -73,16 +74,13 @@ class JQuantsClient:
                 break
         return results
 
-    def fins_summary(self, date=None, from_=None, to=None, code=None):
+    def fins_summary(self, date=None, code=None):
+        """決算サマリを取得する。V2 は date または code のみ受け付ける。"""
         params = {}
         if code:
             params["code"] = code
         if date:
             params["date"] = date
-        if from_:
-            params["from"] = from_
-        if to:
-            params["to"] = to
         return self._get("/fins/summary", params)
 
     def equities_master(self, code=None):
