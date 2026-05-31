@@ -47,6 +47,7 @@ def run(client, target_month, threshold, window, limit=None):
     if limit is not None:
         events = events[:limit]
 
+    # 候補が多数の月では全件1コールの方が per-code ループより安価なため意図的に全件取得
     market_index = build_market_index(client.equities_master())
 
     total = len(events)
@@ -69,7 +70,15 @@ def run(client, target_month, threshold, window, limit=None):
         if kijitsu is None:
             continue
         result = cl.analyze_drop(bars, kijitsu, window=window, threshold=threshold)
-        if result is None or not result.hit:
+        if result is None:
+            continue
+        if result.window_used < window:
+            print(
+                "[warn] {} 指定日以降の営業日が {} 日のみ(window={})。"
+                "データ範囲端の可能性".format(ev.code, result.window_used, window),
+                file=sys.stderr,
+            )
+        if not result.hit:
             continue
         name, market = market_index[ev.code]
         hits.append({
@@ -113,7 +122,7 @@ def main(argv=None):
     parser.add_argument("--window", type=int, default=10)
     parser.add_argument("--csv", help="該当銘柄をCSV出力（コード/銘柄名/市場/指定日）")
     parser.add_argument("--limit", type=int, default=None,
-                        help="候補イベントを先頭N件に制限（規模が大きい月での試験実行用）")
+                        help="候補barsの処理数を制限（開示日スキャンのコール数は減らない）")
     parser.add_argument("--max-rps", type=float, default=3.0,
                         help="APIリクエストの最大レート(req/sec)。レート制限緩和用（既定3.0）")
     args = parser.parse_args(argv)

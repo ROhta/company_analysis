@@ -1,9 +1,10 @@
 # analyzeStocks/test_screen_dividend_drop.py
 import csv
 import io
+import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stdout, redirect_stderr
 
 import screen_dividend_drop as sdd
 from jquants_client import JQuantsError
@@ -151,6 +152,24 @@ class TestMainSmoke(unittest.TestCase):
         # limit=1 の方が bars_daily 呼び出し回数が少ない（候補件数が実際に制限されている）
         self.assertLess(client1.bars_daily_count, client2.bars_daily_count,
                         "limit=1 のとき bars_daily 呼び出しが limit=None より少ないはず")
+
+    def test_window_short_warn_on_stderr(self):
+        """指定日以降の取引日が window 未満のとき [warn] が stderr に出る。"""
+        summary_by_date = self._make_summary_for_sep2025()
+        master = [{"Code": "86970", "CoName": "テスト社", "MktNm": "プライム"}]
+        # 指定日(9/26)以降が1日のみ → window_used=1 < window=10 → warn が出るはず
+        bars = {"86970": [
+            {"Date": "2025-09-24", "C": 1700.0},
+            {"Date": "2025-09-25", "C": 1690.0},
+            {"Date": "2025-09-26", "C": 1636.0},  # 指定日
+            {"Date": "2025-09-29", "C": 1400.0},  # 1日のみ・下落あり
+        ]}
+        client = FakeClient(None, master, bars, summary_by_date=summary_by_date)
+        err = io.StringIO()
+        with redirect_stderr(err):
+            sdd.run(client, "2025-09", threshold=0.95, window=10)
+        self.assertIn("[warn]", err.getvalue())
+        self.assertIn("86970", err.getvalue())
 
     def test_range_out_of_scope_returns_empty(self):
         """範囲外月ではJQuantsErrorをキャッチして空リストを返す（穏当に終わる）。"""
