@@ -43,6 +43,14 @@ class FakeClient:
         return self._bars.get(code, [])
 
 
+def _summary_by_date_sep2025():
+    """2025-09-30 を CurPerEn とする 2Q 行を、開示日 2025-10-01 にマッピングした summary_by_date。"""
+    return {"2025-10-01": [{
+        "Code": "86970", "DocType": "2QFinancialStatements_Consolidated_IFRS",
+        "CurPerType": "2Q", "CurPerEn": "2025-09-30", "DivFY": "", "Div2Q": "25.0",
+    }]}
+
+
 class TestBuildMarketIndex(unittest.TestCase):
     def test_keeps_prime_and_standard_only(self):
         master = [
@@ -56,18 +64,9 @@ class TestBuildMarketIndex(unittest.TestCase):
 
 
 class TestMainSmoke(unittest.TestCase):
-    def _make_summary_for_sep2025(self):
-        """2025-09月末を CurPerEn とする要約行を、開示日スキャン範囲の特定日付にマッピング。"""
-        row = {
-            "Code": "86970", "DocType": "2QFinancialStatements_Consolidated_IFRS",
-            "CurPerType": "2Q", "CurPerEn": "2025-09-30", "DivFY": "", "Div2Q": "25.0",
-        }
-        # 2025-10-01 (水) に開示されたとする
-        return {"2025-10-01": [row]}
-
     def test_fins_summary_called_with_date_param(self):
         """run() が fins_summary(date=...) を使って呼ぶことを確認。"""
-        summary_by_date = self._make_summary_for_sep2025()
+        summary_by_date = _summary_by_date_sep2025()
         master = [{"Code": "86970", "CoName": "テスト社", "MktNm": "プライム"}]
         bars = {"86970": [
             {"Date": "2025-09-24", "C": 1700.0},
@@ -88,7 +87,7 @@ class TestMainSmoke(unittest.TestCase):
 
     def test_finds_dropping_stock(self):
         # 2025-09(中間)に権利確定、指定日9/26(1636)→以降1490まで下落する銘柄
-        summary_by_date = self._make_summary_for_sep2025()
+        summary_by_date = _summary_by_date_sep2025()
         master = [{"Code": "86970", "CoName": "テスト社", "MktNm": "プライム"}]
         bars = {"86970": [
             {"Date": "2025-09-24", "C": 1700.0},
@@ -106,7 +105,7 @@ class TestMainSmoke(unittest.TestCase):
         self.assertIn("テスト社", out.getvalue())
 
     def test_no_hit_when_no_drop(self):
-        summary_by_date = self._make_summary_for_sep2025()
+        summary_by_date = _summary_by_date_sep2025()
         master = [{"Code": "86970", "CoName": "テスト社", "MktNm": "プライム"}]
         bars = {"86970": [
             {"Date": "2025-09-24", "C": 1700.0},
@@ -157,7 +156,7 @@ class TestMainSmoke(unittest.TestCase):
 
     def test_window_short_warn_on_stderr(self):
         """指定日以降の取引日が window 未満のとき [warn] が stderr に出る。"""
-        summary_by_date = self._make_summary_for_sep2025()
+        summary_by_date = _summary_by_date_sep2025()
         master = [{"Code": "86970", "CoName": "テスト社", "MktNm": "プライム"}]
         # 指定日(9/26)以降が1日のみ → window_used=1 < window=10 → warn が出るはず
         bars = {"86970": [
@@ -208,7 +207,6 @@ class TestWriteCsv(unittest.TestCase):
                 raw = f.read()
             self.assertTrue(raw.startswith(b"\xef\xbb\xbf"), "BOM が見つかりません")
         finally:
-            import os
             os.unlink(path)
 
     def test_header_row(self):
@@ -222,7 +220,6 @@ class TestWriteCsv(unittest.TestCase):
                 header = next(reader)
             self.assertEqual(header, ["コード", "銘柄名", "市場", "指定日"])
         finally:
-            import os
             os.unlink(path)
 
     def test_data_row(self):
@@ -237,19 +234,11 @@ class TestWriteCsv(unittest.TestCase):
                 row = next(reader)
             self.assertEqual(row, ["86970", "テスト社", "プライム", "2025-09-26"])
         finally:
-            import os
             os.unlink(path)
 
 
 class TestRunEdgeCases(unittest.TestCase):
     """run() の未カバー経路をテストする。"""
-
-    def _make_summary_for_sep2025(self):
-        row = {
-            "Code": "86970", "DocType": "2QFinancialStatements_Consolidated_IFRS",
-            "CurPerType": "2Q", "CurPerEn": "2025-09-30", "DivFY": "", "Div2Q": "25.0",
-        }
-        return {"2025-10-01": [row]}
 
     def _make_bars_with_hit(self):
         return {"86970": [
@@ -262,7 +251,7 @@ class TestRunEdgeCases(unittest.TestCase):
     def test_growth_market_stock_excluded_from_hits(self):
         """グロース銘柄はTARGET_MARKETSに含まれないため hits に出ない（市場外スキップ）。"""
         # グロース銘柄86970を events に含めるが master からはグロースとして登録
-        summary_by_date = self._make_summary_for_sep2025()
+        summary_by_date = _summary_by_date_sep2025()
         # プライムなし・グロースのみ → market_index が空になる → JQuantsError が発生する
         # この経路は「空ユニバース」ではなく「市場外コード」なので、
         # グロース銘柄と一緒にプライム銘柄を追加して market_index を空にしないようにする
@@ -270,7 +259,7 @@ class TestRunEdgeCases(unittest.TestCase):
             "Code": "99990", "DocType": "2QFinancialStatements_Consolidated_IFRS",
             "CurPerType": "2Q", "CurPerEn": "2025-09-30", "DivFY": "", "Div2Q": "10.0",
         }
-        summary_by_date_multi = {"2025-10-01": [self._make_summary_for_sep2025()["2025-10-01"][0], growth_row]}
+        summary_by_date_multi = {"2025-10-01": [_summary_by_date_sep2025()["2025-10-01"][0], growth_row]}
         master = [
             {"Code": "86970", "CoName": "テスト社", "MktNm": "プライム"},
             {"Code": "99990", "CoName": "グロース社", "MktNm": "グロース"},
@@ -287,7 +276,7 @@ class TestRunEdgeCases(unittest.TestCase):
 
     def test_bars_empty_skips_with_warn(self):
         """bars が空リストのとき [warn] を stderr に出してスキップ、例外を発生させない。"""
-        summary_by_date = self._make_summary_for_sep2025()
+        summary_by_date = _summary_by_date_sep2025()
         master = [{"Code": "86970", "CoName": "テスト社", "MktNm": "プライム"}]
         bars = {"86970": []}  # 空リスト
         client = FakeClient(None, master, bars, summary_by_date=summary_by_date)
@@ -300,7 +289,7 @@ class TestRunEdgeCases(unittest.TestCase):
 
     def test_empty_universe_raises_jquants_error(self):
         """events ありで market_index が空(master=[]) のとき JQuantsError を送出。"""
-        summary_by_date = self._make_summary_for_sep2025()
+        summary_by_date = _summary_by_date_sep2025()
         master = []  # プライム/スタンダードなし → market_index 空
         client = FakeClient(None, master, {}, summary_by_date=summary_by_date)
         with self.assertRaises(JQuantsError):
@@ -317,12 +306,7 @@ class TestMainViaMonkeypatch(unittest.TestCase):
         return factory
 
     def _make_client_with_hit(self):
-        summary_by_date = {
-            "2025-10-01": [{
-                "Code": "86970", "DocType": "2QFinancialStatements_Consolidated_IFRS",
-                "CurPerType": "2Q", "CurPerEn": "2025-09-30", "DivFY": "", "Div2Q": "25.0",
-            }]
-        }
+        summary_by_date = _summary_by_date_sep2025()
         master = [{"Code": "86970", "CoName": "テスト社", "MktNm": "プライム"}]
         bars = {"86970": [
             {"Date": "2025-09-24", "C": 1700.0},

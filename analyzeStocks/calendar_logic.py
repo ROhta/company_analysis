@@ -1,4 +1,5 @@
 """配当権利落ちスクリーニングの純粋ロジック（ネットワーク非依存）。"""
+import calendar
 import datetime
 import typing
 
@@ -103,24 +104,26 @@ def analyze_drop(price_rows, kijitsu_date, window, threshold):
     window_used: 指定日の翌営業日以降に実際に存在した取引日数（終値欠損=null含む）。
     window より小さい場合はデータ範囲端の可能性があり、判定の信頼性が低下する。
     """
-    rows = sorted(price_rows, key=lambda r: parse_date(r["Date"]))
+    # 各行の Date を1度だけパースし、ソート・指定日探索・window抽出で使い回す
+    parsed = sorted(
+        ((parse_date(r["Date"]), r) for r in price_rows),
+        key=lambda dr: dr[0],
+    )
     idx = None
-    for i, r in enumerate(rows):
-        if parse_date(r["Date"]) == kijitsu_date:
+    for i, (d, _row) in enumerate(parsed):
+        if d == kijitsu_date:
             idx = i
             break
     if idx is None:
         return None
-    ref_close = _to_float(rows[idx].get("C"))
+    ref_close = _to_float(parsed[idx][1].get("C"))
     if ref_close is None or ref_close <= 0:
         return None
-    after = rows[idx + 1: idx + 1 + window]
+    after = parsed[idx + 1: idx + 1 + window]
     window_used = len(after)
-    closes = [
-        (parse_date(r["Date"]), _to_float(r.get("C")))
-        for r in after
-    ]
-    closes = [(d, c) for d, c in closes if c is not None]
+    closes = [(d, c) for d, c in
+              ((d, _to_float(r.get("C"))) for d, r in after)
+              if c is not None]
     if not closes:
         return None
     min_date, min_close = min(closes, key=lambda dc: dc[1])
@@ -135,9 +138,7 @@ def analyze_drop(price_rows, kijitsu_date, window, threshold):
 
 
 def _month_end(year, month):
-    if month == 12:
-        return datetime.date(year, 12, 31)
-    return datetime.date(year, month + 1, 1) - datetime.timedelta(days=1)
+    return datetime.date(year, month, calendar.monthrange(year, month)[1])
 
 
 def _shift_month(year, month, delta):
