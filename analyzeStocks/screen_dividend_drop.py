@@ -111,7 +111,7 @@ def main(argv=None):
     parser.add_argument("--month", help="対象の権利確定月 YYYY-MM(未指定なら約4ヶ月前)")
     parser.add_argument("--threshold", type=float, default=0.95)
     parser.add_argument("--window", type=int, default=10)
-    parser.add_argument("--csv", help="中間候補リストCSVの出力先")
+    parser.add_argument("--csv", help="該当銘柄をCSV出力（コード/銘柄名/市場/指定日）")
     parser.add_argument("--limit", type=int, default=None,
                         help="候補イベントを先頭N件に制限（規模が大きい月での試験実行用）")
     parser.add_argument("--max-rps", type=float, default=3.0,
@@ -125,7 +125,8 @@ def main(argv=None):
               file=sys.stderr)
 
     try:
-        client = JQuantsClient(api_key=api_key, min_interval=1.0 / args.max_rps)
+        min_interval = 1.0 / args.max_rps if args.max_rps and args.max_rps > 0 else 0.0
+        client = JQuantsClient(api_key=api_key, min_interval=min_interval)
         hits = run(client, target_month, args.threshold, args.window, limit=args.limit)
     except JQuantsError as e:
         print("[error] {}".format(e), file=sys.stderr)
@@ -137,7 +138,7 @@ def main(argv=None):
         except OSError as e:
             print("[error] CSV出力失敗: {}".format(e), file=sys.stderr)
             return 1
-        print("[info] 中間候補リストを {} に出力しました".format(args.csv), file=sys.stderr)
+        print("[info] 該当銘柄を {} に出力しました".format(args.csv), file=sys.stderr)
     return 0
 
 
