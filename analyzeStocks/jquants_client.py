@@ -26,15 +26,22 @@ def _default_fetch(url, headers):
 
 
 class JQuantsClient:
-    def __init__(self, api_key, fetch=_default_fetch, max_retries=5, sleep=time.sleep):
+    def __init__(self, api_key, fetch=_default_fetch, max_retries=5, sleep=time.sleep,
+                 min_interval=0.34):
         if not api_key:
             raise JQuantsError("JQUANTS_API_KEY が設定されていません")
         self._api_key = api_key
         self._fetch = fetch
         self._max_retries = max_retries
         self._sleep = sleep
+        # 論理リクエストごとに最低 min_interval 秒の間隔を確保する（レート制限緩和）。
+        # 0 ならペーシングしない（既存テスト互換）。
+        self._min_interval = min_interval
 
     def _request_with_retry(self, url, headers):
+        # 論理リクエスト開始時にペーシング。429時の指数バックオフは別途ループ内で行う。
+        if self._min_interval:
+            self._sleep(self._min_interval)
         status, body = None, None
         for attempt in range(self._max_retries):
             status, body = self._fetch(url, headers)

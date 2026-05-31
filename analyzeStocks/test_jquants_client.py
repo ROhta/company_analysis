@@ -44,7 +44,7 @@ class TestJQuantsClient(unittest.TestCase):
             (200, json.dumps({"data": [{"Code": "1"}]})),
         ])
         sleeps = []
-        client = JQuantsClient(api_key="KEY", fetch=t, sleep=sleeps.append)
+        client = JQuantsClient(api_key="KEY", fetch=t, sleep=sleeps.append, min_interval=0)
         rows = client.bars_daily(code="86970", date="20260202")
         self.assertEqual(len(rows), 1)
         self.assertEqual(len(sleeps), 1)
@@ -65,9 +65,52 @@ class TestJQuantsClient(unittest.TestCase):
     def test_raises_after_exhausting_retries(self):
         t = FakeTransport([(429, json.dumps({"message": "rate"})) for _ in range(3)])
         sleeps = []
-        client = JQuantsClient(api_key="KEY", fetch=t, max_retries=3, sleep=sleeps.append)
+        client = JQuantsClient(api_key="KEY", fetch=t, max_retries=3, sleep=sleeps.append,
+                               min_interval=0)
         with self.assertRaises(JQuantsError):
             client.fins_summary()
+
+
+class TestRequestPacing(unittest.TestCase):
+    """min_interval によるリクエスト間ペーシングのテスト。"""
+
+    def test_paces_each_request_with_min_interval(self):
+        # 非429（成功）でもペーシングsleepが1回呼ばれる
+        t = FakeTransport([(200, json.dumps({"data": [{"Code": "1"}]}))])
+        sleeps = []
+        client = JQuantsClient(api_key="KEY", fetch=t, sleep=sleeps.append, min_interval=0.5)
+        client.equities_master()
+        self.assertIn(0.5, sleeps)
+        # 429バックオフは無いのでペーシングの1回だけ
+        self.assertEqual(sleeps, [0.5])
+
+    def test_paces_each_page_during_pagination(self):
+        # ページごと（=論理リクエストごと）にペーシングされる
+        t = FakeTransport([
+            (200, json.dumps({"data": [{"Code": "1"}], "pagination_key": "p2"})),
+            (200, json.dumps({"data": [{"Code": "2"}]})),
+        ])
+        sleeps = []
+        client = JQuantsClient(api_key="KEY", fetch=t, sleep=sleeps.append, min_interval=0.5)
+        client.fins_summary(date="2025-05-14")
+        self.assertEqual(sleeps, [0.5, 0.5])
+
+    def test_min_interval_zero_is_noop(self):
+        # min_interval=0 ならペーシングsleepは呼ばれない（429も無ければsleep無し）
+        t = FakeTransport([(200, json.dumps({"data": []}))])
+        sleeps = []
+        client = JQuantsClient(api_key="KEY", fetch=t, sleep=sleeps.append, min_interval=0)
+        client.fins_summary(date="2025-05-14")
+        self.assertEqual(sleeps, [])
+
+    def test_default_min_interval_paces(self):
+        # 既定 min_interval（>0）でペーシングが行われる
+        t = FakeTransport([(200, json.dumps({"data": []}))])
+        sleeps = []
+        client = JQuantsClient(api_key="KEY", fetch=t, sleep=sleeps.append)
+        client.fins_summary(date="2025-05-14")
+        self.assertEqual(len(sleeps), 1)
+        self.assertGreater(sleeps[0], 0)
 
 
 if __name__ == "__main__":
