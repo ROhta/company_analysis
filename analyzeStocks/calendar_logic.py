@@ -144,7 +144,7 @@ def default_target_month(today):
 def disclosure_dates(year_month):
     """対象月の権利確定イベントを拾うための開示日（平日のみ）の文字列リストを返す。
 
-    範囲は disclosure_scan_range と同じ：対象月末〜+3ヶ月の月末。
+    範囲は対象月末〜+3ヶ月の月末。
     土曜(weekday=5)・日曜(weekday=6)は除外。祝日は考慮しない。
     """
     year, month = (int(x) for x in year_month.split("-"))
@@ -160,13 +160,3 @@ def disclosure_dates(year_month):
     return result
 
 
-def disclosure_scan_range(year_month):
-    """対象月の権利確定イベントを拾うための開示日レンジ('YYYY-MM-DD','YYYY-MM-DD')。
-
-    対象月末から、配当が開示される猶予を見て +3ヶ月の月末まで。
-    """
-    year, month = (int(x) for x in year_month.split("-"))
-    start = _month_end(year, month)
-    end_year, end_month = _shift_month(year, month, 3)
-    end = _month_end(end_year, end_month)
-    return start.isoformat(), end.isoformat()

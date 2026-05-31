@@ -39,11 +39,6 @@ class TestTargetMonthHelpers(unittest.TestCase):
         self.assertEqual(cl.default_target_month(datetime.date(2026, 5, 31)), "2026-01")
         self.assertEqual(cl.default_target_month(datetime.date(2026, 2, 15)), "2025-10")
 
-    def test_disclosure_scan_range_covers_period_plus_three_months(self):
-        frm, to = cl.disclosure_scan_range("2025-09")
-        self.assertEqual(frm, "2025-09-30")   # 対象月末から
-        self.assertEqual(to, "2025-12-31")    # +3ヶ月の月末まで
-
 
 class TestAnalyzeDrop(unittest.TestCase):
     def _series(self):
