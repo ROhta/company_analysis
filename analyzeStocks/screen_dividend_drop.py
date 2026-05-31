@@ -147,7 +147,7 @@ def main(argv=None):
               file=sys.stderr)
 
     try:
-        min_interval = 1.0 / args.max_rps if args.max_rps and args.max_rps > 0 else 0.0
+        min_interval = 1.0 / args.max_rps if args.max_rps > 0 else 0.0
         client = JQuantsClient(api_key=api_key, min_interval=min_interval)
         hits = run(client, target_month, args.threshold, args.window, limit=args.limit)
     except JQuantsError as e:
