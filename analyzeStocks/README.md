@@ -2,27 +2,44 @@
 
 - [J-Quants API](https://jpx.gitbook.io/j-quants-ja/api-reference)を使用して、株の分析を行う
 - 現在の分析内容は後述
+- 本ツールは **J-Quants API V2**（APIキー認証）に対応している
 
 ## 用意するもの
 
 - zsh
-- J-Quants APIの認証情報（下記のいずれか）
-  - [リフレッシュトークン](https://jpx-jquants.com/dashboard/menu/?lang=ja)
-  - メールアドレスとパスワード
+- jq
+- J-Quants APIの**APIキー**
+  - [J-Quants Dashboard](https://jpx-jquants.com/dashboard/menu/?lang=ja)で発行する
+  - 発行後、環境変数に設定する: `export JQUANTS_API_KEY=<発行したキー>`
+  - APIキーに有効期限はない（V1のような都度のトークン取得は不要）
 - 下記のヘッダーを持つcsv
   - 証券コード
   - 銘柄名
   - 市場区分
   - 指定日
 
-## スクリプトの実行順
+## 使い方
 
-1. get_id_token.zsh : 認証情報を用いて、IDトークンを取得
-2. analysis_stock.zsh : csvのファイルパスを引数にとって、分析結果を出力
+1. APIキーを環境変数に設定する
+
+   ```sh
+   export JQUANTS_API_KEY=<発行したキー>
+   ```
+
+2. csvのファイルパスを引数にとって分析を実行する
+
+   ```sh
+   ./screen_10days_drop_95pct.zsh <csvファイルのパス>
+   ```
 
 ## 分析内容
 
 - 指定日から10営業日以内の最安値が指定日の株価の95%未満の銘柄
+
+## 注意事項
+
+- 取得できる日付範囲は契約プランのデータ提供期間に依存する。CSVの「指定日」がこの範囲外（直近の未提供期間を含む）の場合、その銘柄はスキップされる。
+- 終値は調整前の生値（V2の `C` フィールド）で比較している。株式分割・併合をまたぐ期間では調整後終値（`AdjC`）の利用も検討すること。
 
 ## 今後の開発検討事項
 

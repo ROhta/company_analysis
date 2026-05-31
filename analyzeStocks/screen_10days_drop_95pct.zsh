@@ -24,10 +24,10 @@ if ! command -v jq &> /dev/null; then
     exit 1
 fi
 
-# 1. 環境変数JQUANTS_ID_TOKENの取得
-if [[ -z "$JQUANTS_ID_TOKEN" ]]; then
-    echo "Error: 環境変数JQUANTS_ID_TOKENが設定されていません" >&2
-    echo "get_id_token.zshを実行して、IDトークンを取得してください" >&2
+# 1. 環境変数JQUANTS_API_KEYの確認
+if [[ -z "$JQUANTS_API_KEY" ]]; then
+    echo "Error: 環境変数JQUANTS_API_KEYが設定されていません" >&2
+    echo "J-QuantsダッシュボードでAPIキーを発行し、export JQUANTS_API_KEY=<キー> を設定してください" >&2
     exit 1
 fi
 
@@ -69,7 +69,7 @@ add_days() {
 call_jquants_api() {
     local url="$1"
     local temp_file=$(mktemp)
-    local http_code=$(curl -s -o "$temp_file" -w "%{http_code}" -H "Authorization: Bearer $JQUANTS_ID_TOKEN" "$url")
+    local http_code=$(curl -s -o "$temp_file" -w "%{http_code}" -H "x-api-key: $JQUANTS_API_KEY" "$url")
     local body=$(cat "$temp_file")
     rm -f "$temp_file"
 
@@ -118,10 +118,10 @@ tail -n +2 "$CSV_FILE" | while IFS=',' read -r code name market ex_date; do
     ex_date_api=$(convert_date_format "$ex_date")
 
     # 4. 指定日の株価を取得
-    ex_day_response=$(call_jquants_api "https://api.jquants.com/v1/prices/daily_quotes?code=$code&date=$ex_date_api")
+    ex_day_response=$(call_jquants_api "https://api.jquants.com/v2/equities/bars/daily?code=$code&date=$ex_date_api")
 
-    # レスポンスから終値を取得
-    ex_day_close=$(echo "$ex_day_response" | jq -r '.daily_quotes[0].Close // empty')
+    # レスポンスから終値を取得（V2: data配列・Cフィールド）
+    ex_day_close=$(echo "$ex_day_response" | jq -r '.data[0].C // empty')
 
     if [[ -z "$ex_day_close" ]]; then
         echo "  警告: 指定日($ex_date)の株価データが取得できませんでした。スキップします。" >&2
@@ -136,10 +136,10 @@ tail -n +2 "$CSV_FILE" | while IFS=',' read -r code name market ex_date; do
     end_date=$(add_days "$ex_date_api" 21)
 
     # 期間の株価データを取得
-    period_response=$(call_jquants_api "https://api.jquants.com/v1/prices/daily_quotes?code=$code&from=$ex_rights_date&to=$end_date")
+    period_response=$(call_jquants_api "https://api.jquants.com/v2/equities/bars/daily?code=$code&from=$ex_rights_date&to=$end_date")
 
-    # 営業日のデータを取得し、最初の10営業日の最安値を計算（nullを除外）
-    min_close=$(echo "$period_response" | jq -r '[.daily_quotes[0:10][].Close | select(. != null)] | min')
+    # 営業日のデータを取得し、最初の10営業日の最安値を計算（nullを除外）（V2: data配列・Cフィールド）
+    min_close=$(echo "$period_response" | jq -r '[.data[0:10][].C | select(. != null)] | min')
 
     if [[ -z "$min_close" || "$min_close" == "null" ]]; then
         echo "  警告: 指定日以降の株価データが取得できませんでした。スキップします。" >&2
