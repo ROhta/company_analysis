@@ -114,6 +114,8 @@ def main(argv=None):
     parser.add_argument("--csv", help="中間候補リストCSVの出力先")
     parser.add_argument("--limit", type=int, default=None,
                         help="候補イベントを先頭N件に制限（規模が大きい月での試験実行用）")
+    parser.add_argument("--max-rps", type=float, default=3.0,
+                        help="APIリクエストの最大レート(req/sec)。レート制限緩和用（既定3.0）")
     args = parser.parse_args(argv)
 
     api_key = os.environ.get("JQUANTS_API_KEY", "")
@@ -123,7 +125,7 @@ def main(argv=None):
               file=sys.stderr)
 
     try:
-        client = JQuantsClient(api_key=api_key)
+        client = JQuantsClient(api_key=api_key, min_interval=1.0 / args.max_rps)
         hits = run(client, target_month, args.threshold, args.window, limit=args.limit)
     except JQuantsError as e:
         print("[error] {}".format(e), file=sys.stderr)
