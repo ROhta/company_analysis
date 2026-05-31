@@ -1,9 +1,11 @@
 # analyzeStocks/test_screen_dividend_drop.py
 import csv
 import io
+import os
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from contextlib import redirect_stdout, redirect_stderr
 
 import screen_dividend_drop as sdd
@@ -237,6 +239,135 @@ class TestWriteCsv(unittest.TestCase):
         finally:
             import os
             os.unlink(path)
+
+
+class TestRunEdgeCases(unittest.TestCase):
+    """run() の未カバー経路をテストする。"""
+
+    def _make_summary_for_sep2025(self):
+        row = {
+            "Code": "86970", "DocType": "2QFinancialStatements_Consolidated_IFRS",
+            "CurPerType": "2Q", "CurPerEn": "2025-09-30", "DivFY": "", "Div2Q": "25.0",
+        }
+        return {"2025-10-01": [row]}
+
+    def _make_bars_with_hit(self):
+        return {"86970": [
+            {"Date": "2025-09-24", "C": 1700.0},
+            {"Date": "2025-09-25", "C": 1690.0},
+            {"Date": "2025-09-26", "C": 1636.0},
+            {"Date": "2025-09-29", "C": 1490.0},
+        ]}
+
+    def test_growth_market_stock_excluded_from_hits(self):
+        """グロース銘柄はTARGET_MARKETSに含まれないため hits に出ない（市場外スキップ）。"""
+        # グロース銘柄86970を events に含めるが master からはグロースとして登録
+        summary_by_date = self._make_summary_for_sep2025()
+        # プライムなし・グロースのみ → market_index が空になる → JQuantsError が発生する
+        # この経路は「空ユニバース」ではなく「市場外コード」なので、
+        # グロース銘柄と一緒にプライム銘柄を追加して market_index を空にしないようにする
+        growth_row = {
+            "Code": "99990", "DocType": "2QFinancialStatements_Consolidated_IFRS",
+            "CurPerType": "2Q", "CurPerEn": "2025-09-30", "DivFY": "", "Div2Q": "10.0",
+        }
+        summary_by_date_multi = {"2025-10-01": [self._make_summary_for_sep2025()["2025-10-01"][0], growth_row]}
+        master = [
+            {"Code": "86970", "CoName": "テスト社", "MktNm": "プライム"},
+            {"Code": "99990", "CoName": "グロース社", "MktNm": "グロース"},
+        ]
+        bars = dict(self._make_bars_with_hit())
+        bars["99990"] = [{"Date": "2025-09-26", "C": 1000.0}, {"Date": "2025-09-29", "C": 100.0}]
+        client = FakeClient(None, master, bars, summary_by_date=summary_by_date_multi)
+        err = io.StringIO()
+        with redirect_stderr(err):
+            hits = sdd.run(client, "2025-09", threshold=0.95, window=10)
+        # グロース銘柄99990は hits に出ない
+        hit_codes = [h["code"] for h in hits]
+        self.assertNotIn("99990", hit_codes)
+
+    def test_bars_empty_skips_with_warn(self):
+        """bars が空リストのとき [warn] を stderr に出してスキップ、例外を発生させない。"""
+        summary_by_date = self._make_summary_for_sep2025()
+        master = [{"Code": "86970", "CoName": "テスト社", "MktNm": "プライム"}]
+        bars = {"86970": []}  # 空リスト
+        client = FakeClient(None, master, bars, summary_by_date=summary_by_date)
+        err = io.StringIO()
+        with redirect_stderr(err):
+            hits = sdd.run(client, "2025-09", threshold=0.95, window=10)
+        self.assertEqual(hits, [])
+        self.assertIn("[warn]", err.getvalue())
+        self.assertIn("86970", err.getvalue())
+
+    def test_empty_universe_raises_jquants_error(self):
+        """events ありで market_index が空(master=[]) のとき JQuantsError を送出。"""
+        summary_by_date = self._make_summary_for_sep2025()
+        master = []  # プライム/スタンダードなし → market_index 空
+        client = FakeClient(None, master, {}, summary_by_date=summary_by_date)
+        with self.assertRaises(JQuantsError):
+            sdd.run(client, "2025-09", threshold=0.95, window=10)
+
+
+class TestMainViaMonkeypatch(unittest.TestCase):
+    """main() を FakeClient で monkeypatch して動作を検証する。"""
+
+    def _make_factory(self, fake_client):
+        """JQuantsClient(api_key=..., min_interval=...) を受け付けて fake_client を返す factory を作る。"""
+        def factory(*args, **kwargs):
+            return fake_client
+        return factory
+
+    def _make_client_with_hit(self):
+        summary_by_date = {
+            "2025-10-01": [{
+                "Code": "86970", "DocType": "2QFinancialStatements_Consolidated_IFRS",
+                "CurPerType": "2Q", "CurPerEn": "2025-09-30", "DivFY": "", "Div2Q": "25.0",
+            }]
+        }
+        master = [{"Code": "86970", "CoName": "テスト社", "MktNm": "プライム"}]
+        bars = {"86970": [
+            {"Date": "2025-09-24", "C": 1700.0},
+            {"Date": "2025-09-25", "C": 1690.0},
+            {"Date": "2025-09-26", "C": 1636.0},
+            {"Date": "2025-09-29", "C": 1610.0},
+            {"Date": "2025-09-30", "C": 1520.0},
+            {"Date": "2025-10-01", "C": 1490.0},
+        ]}
+        return FakeClient(None, master, bars, summary_by_date=summary_by_date)
+
+    def test_max_rps_zero_does_not_raise_zero_division(self):
+        """--max-rps 0 でも ZeroDivisionError にならず main が 0 を返す。"""
+        fake = self._make_client_with_hit()
+        with unittest.mock.patch.object(sdd, "JQuantsClient", self._make_factory(fake)):
+            result = sdd.main(["--month", "2025-09", "--max-rps", "0"])
+        self.assertEqual(result, 0)
+
+    def test_csv_option_writes_file_and_returns_zero(self):
+        """--csv 指定で CSV が書かれ main が 0 を返す。"""
+        fake = self._make_client_with_hit()
+        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
+            path = tmp.name
+        try:
+            with unittest.mock.patch.object(sdd, "JQuantsClient", self._make_factory(fake)):
+                result = sdd.main(["--month", "2025-09", "--csv", path])
+            self.assertEqual(result, 0)
+            with open(path, newline="", encoding="utf-8-sig") as f:
+                reader = csv.reader(f)
+                header = next(reader)
+            self.assertEqual(header, ["コード", "銘柄名", "市場", "指定日"])
+        finally:
+            os.unlink(path)
+
+    def test_run_raises_jquants_error_main_returns_one(self):
+        """run() が JQuantsError を送出したとき main が 1 を返す。"""
+        class RaisingClient:
+            def fins_summary(self, date=None, **kwargs):
+                raise JQuantsError("テストエラー")
+            def equities_master(self, **kwargs):
+                return []
+
+        with unittest.mock.patch.object(sdd, "JQuantsClient", self._make_factory(RaisingClient())):
+            result = sdd.main(["--month", "2025-09"])
+        self.assertEqual(result, 1)
 
 
 if __name__ == "__main__":

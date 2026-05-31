@@ -193,6 +193,38 @@ class TestDividendEvents(unittest.TestCase):
         events = cl.dividend_events(rows)
         self.assertEqual(len(events), 2)
 
+    def test_fy_zero_dividend_excluded(self):
+        """DivFY="0"（配当0）のFY行は除外される。"""
+        rows = [
+            {"Code": "99990", "DocType": "FYFinancialStatements_Consolidated_JP",
+             "CurPerType": "FY", "CurPerEn": "2025-03-31", "DivFY": "0", "Div2Q": ""},
+        ]
+        events = cl.dividend_events(rows)
+        self.assertEqual(events, [])
+
+
+class TestAnalyzeDropEdgeCases(unittest.TestCase):
+    def test_returns_none_when_ref_close_is_zero_string(self):
+        """指定日の終値が "0" (ref_close<=0) の場合は None を返す。"""
+        rows = [
+            {"Date": "2025-09-26", "C": "0"},
+            {"Date": "2025-09-29", "C": 1600.0},
+        ]
+        self.assertIsNone(
+            cl.analyze_drop(rows, datetime.date(2025, 9, 26), window=10, threshold=0.95)
+        )
+
+    def test_returns_none_when_all_after_closes_are_null(self):
+        """指定日以降が全て C=None（終値欠損）の場合は None を返す。"""
+        rows = [
+            {"Date": "2025-09-26", "C": 1636.0},
+            {"Date": "2025-09-29", "C": None},
+            {"Date": "2025-09-30", "C": None},
+        ]
+        self.assertIsNone(
+            cl.analyze_drop(rows, datetime.date(2025, 9, 26), window=10, threshold=0.95)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
