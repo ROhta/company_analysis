@@ -156,13 +156,16 @@ def default_target_month(today):
 def disclosure_dates(year_month):
     """対象月の権利確定イベントを拾うための開示日（平日のみ）の文字列リストを返す。
 
-    範囲は対象月末〜+3ヶ月の月末。
+    範囲は対象月末〜対象月末+60日。
     土曜(weekday=5)・日曜(weekday=6)は除外。祝日は考慮しない。
+
+    根拠: 決算短信は決算期末後45日以内の開示が原則のため、対象月末+60日までで
+    対象月に期末を持つFY/2Q短信をほぼ網羅できる。ごく稀な遅延開示は
+    取りこぼす可能性がある。
     """
     year, month = (int(x) for x in year_month.split("-"))
     start = _month_end(year, month)
-    end_year, end_month = _shift_month(year, month, 3)
-    end = _month_end(end_year, end_month)
+    end = start + datetime.timedelta(days=60)
     result = []
     current = start
     while current <= end:

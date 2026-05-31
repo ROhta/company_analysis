@@ -110,15 +110,16 @@ class TestSettlementDate(unittest.TestCase):
 
 
 class TestDisclosureDates(unittest.TestCase):
-    """disclosure_dates(year_month) の単体テスト。"""
+    """disclosure_dates(year_month) の単体テスト（対象月末+60日・平日のみ）。"""
 
     def test_first_date_is_month_end(self):
         dates = cl.disclosure_dates("2025-09")
         self.assertEqual(dates[0], "2025-09-30")  # 2025-09-30 は火曜
 
-    def test_last_date_is_three_months_later_month_end(self):
+    def test_last_date_is_60_days_after_month_end(self):
+        # 2025-09-30 + 60日 = 2025-11-29(土) → 直前の平日 2025-11-28(金)
         dates = cl.disclosure_dates("2025-09")
-        self.assertEqual(dates[-1], "2025-12-31")  # 2025-12-31 は水曜
+        self.assertEqual(dates[-1], "2025-11-28")
 
     def test_no_weekends(self):
         dates = cl.disclosure_dates("2025-09")
@@ -127,9 +128,10 @@ class TestDisclosureDates(unittest.TestCase):
             self.assertLessEqual(d.weekday(), 4, "{} は土日".format(s))
 
     def test_all_within_range(self):
+        # +60日窓内であることを確認
         dates = cl.disclosure_dates("2025-09")
         start = datetime.date(2025, 9, 30)
-        end = datetime.date(2025, 12, 31)
+        end = datetime.date(2025, 11, 29)  # 2025-09-30 + 60日
         for s in dates:
             d = datetime.date.fromisoformat(s)
             self.assertGreaterEqual(d, start)
@@ -139,14 +141,19 @@ class TestDisclosureDates(unittest.TestCase):
         # 2025-03-31 は月曜 → 先頭
         dates = cl.disclosure_dates("2025-03")
         self.assertEqual(dates[0], "2025-03-31")
-        # 末尾 2025-06-30 は月曜
-        self.assertEqual(dates[-1], "2025-06-30")
+        # 2025-03-31 + 60日 = 2025-05-30 は金曜 → 末尾
+        self.assertEqual(dates[-1], "2025-05-30")
 
     def test_returns_strings(self):
         dates = cl.disclosure_dates("2025-09")
         for s in dates:
             self.assertIsInstance(s, str)
             self.assertRegex(s, r"^\d{4}-\d{2}-\d{2}$")
+
+    def test_count_is_approx_44_for_sep2025(self):
+        # 2025-09の+60日窓では約44コール（+3ヶ月の約67から大幅削減）
+        dates = cl.disclosure_dates("2025-09")
+        self.assertEqual(len(dates), 44)
 
 
 class TestFilterEventsByMonth(unittest.TestCase):
