@@ -104,6 +104,46 @@ class TestSettlementDate(unittest.TestCase):
         )
 
 
+class TestDisclosureDates(unittest.TestCase):
+    """disclosure_dates(year_month) の単体テスト。"""
+
+    def test_first_date_is_month_end(self):
+        dates = cl.disclosure_dates("2025-09")
+        self.assertEqual(dates[0], "2025-09-30")  # 2025-09-30 は火曜
+
+    def test_last_date_is_three_months_later_month_end(self):
+        dates = cl.disclosure_dates("2025-09")
+        self.assertEqual(dates[-1], "2025-12-31")  # 2025-12-31 は水曜
+
+    def test_no_weekends(self):
+        dates = cl.disclosure_dates("2025-09")
+        for s in dates:
+            d = datetime.date.fromisoformat(s)
+            self.assertLessEqual(d.weekday(), 4, "{} は土日".format(s))
+
+    def test_all_within_range(self):
+        dates = cl.disclosure_dates("2025-09")
+        start = datetime.date(2025, 9, 30)
+        end = datetime.date(2025, 12, 31)
+        for s in dates:
+            d = datetime.date.fromisoformat(s)
+            self.assertGreaterEqual(d, start)
+            self.assertLessEqual(d, end)
+
+    def test_march_end_is_included(self):
+        # 2025-03-31 は月曜 → 先頭
+        dates = cl.disclosure_dates("2025-03")
+        self.assertEqual(dates[0], "2025-03-31")
+        # 末尾 2025-06-30 は月曜
+        self.assertEqual(dates[-1], "2025-06-30")
+
+    def test_returns_strings(self):
+        dates = cl.disclosure_dates("2025-09")
+        for s in dates:
+            self.assertIsInstance(s, str)
+            self.assertRegex(s, r"^\d{4}-\d{2}-\d{2}$")
+
+
 class TestFilterEventsByMonth(unittest.TestCase):
     def test_keeps_only_matching_year_month(self):
         events = [
