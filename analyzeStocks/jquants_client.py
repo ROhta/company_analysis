@@ -21,9 +21,9 @@ def _default_fetch(url, headers):
     req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as resp:  # nosemgrep
-            return resp.status, resp.read().decode("utf-8")
+            return resp.status, resp.read().decode("utf-8", errors="replace")
     except urllib.error.HTTPError as e:
-        return e.code, e.read().decode("utf-8")
+        return e.code, e.read().decode("utf-8", errors="replace")
 
 
 class JQuantsClient:
