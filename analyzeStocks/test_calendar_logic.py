@@ -57,11 +57,21 @@ class TestAnalyzeDrop(unittest.TestCase):
         self.assertEqual(r.min_close, 1490.0)           # null除外後の最安値
         self.assertEqual(r.min_date, datetime.date(2025, 10, 1))
         self.assertTrue(r.hit)                          # 1490 < 0.95*1636=1554.2
+        self.assertEqual(r.window_used, 4)              # 9/29, 9/30, 10/1, 10/2 の4日
 
     def test_no_hit_when_above_threshold(self):
         series = [{"Date": "2025-09-26", "C": 1000.0}, {"Date": "2025-09-29", "C": 990.0}]
         r = cl.analyze_drop(series, datetime.date(2025, 9, 26), window=10, threshold=0.95)
         self.assertFalse(r.hit)                          # 990 >= 950
+        self.assertEqual(r.window_used, 1)              # window=10 に対し1日のみ（範囲端）
+
+    def test_window_used_equals_window_when_enough_data(self):
+        # 指定日以降にちょうど window 分の取引日がある場合、window_used == window
+        series = [{"Date": "2025-09-2{}".format(d), "C": float(1000 - d)}
+                  for d in range(6)]  # 9/20〜9/25、指定日=9/20
+        # window=3: 9/21, 9/22, 9/23 の3日分 → window_used=3
+        r = cl.analyze_drop(series, datetime.date(2025, 9, 20), window=3, threshold=0.95)
+        self.assertEqual(r.window_used, 3)
 
     def test_returns_none_when_kijitsu_missing(self):
         self.assertIsNone(

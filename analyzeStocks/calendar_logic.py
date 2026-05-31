@@ -84,7 +84,7 @@ def settlement_date(record_date, trading_days):
 
 
 AnalysisResult = collections.namedtuple(
-    "AnalysisResult", ["ref_close", "min_close", "min_date", "ratio", "hit"]
+    "AnalysisResult", ["ref_close", "min_close", "min_date", "ratio", "hit", "window_used"]
 )
 
 
@@ -93,6 +93,9 @@ def analyze_drop(price_rows, kijitsu_date, window, threshold):
 
     price_rows は {'Date','C'} のリスト。指定日が系列に無い/終値が欠損なら None。
     対象期間に有効な終値が無ければ None。
+
+    window_used: 指定日以降に実際に存在した取引日数（null含む）。window より小さい場合は
+    データ範囲端の可能性があり、判定の信頼性が低下する。
     """
     rows = sorted(price_rows, key=lambda r: parse_date(r["Date"]))
     idx = None
@@ -106,6 +109,7 @@ def analyze_drop(price_rows, kijitsu_date, window, threshold):
     if ref_close is None or ref_close <= 0:
         return None
     after = rows[idx + 1: idx + 1 + window]
+    window_used = len(after)
     closes = [
         (parse_date(r["Date"]), _to_float(r.get("C")))
         for r in after
@@ -120,6 +124,7 @@ def analyze_drop(price_rows, kijitsu_date, window, threshold):
         min_date=min_date,
         ratio=min_close / ref_close,
         hit=min_close < threshold * ref_close,
+        window_used=window_used,
     )
 
 
