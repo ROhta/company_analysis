@@ -26,6 +26,41 @@ class TestParseDate(unittest.TestCase):
         self.assertEqual(cl.parse_date("20250930"), datetime.date(2025, 9, 30))
 
 
+class TestAnalyzeDrop(unittest.TestCase):
+    def _series(self):
+        # 指定日=9/26(C=1636) 以降に 1610,1520,1490,null。既存zshの1636/1490を再現。
+        return [
+            {"Date": "2025-09-26", "C": 1636.0},
+            {"Date": "2025-09-29", "C": 1610.0},
+            {"Date": "2025-09-30", "C": 1520.0},
+            {"Date": "2025-10-01", "C": 1490.0},
+            {"Date": "2025-10-02", "C": None},
+        ]
+
+    def test_equivalent_to_zsh_1636_1490(self):
+        r = cl.analyze_drop(self._series(), datetime.date(2025, 9, 26), window=10, threshold=0.95)
+        self.assertEqual(r.ref_close, 1636.0)
+        self.assertEqual(r.min_close, 1490.0)           # null除外後の最安値
+        self.assertEqual(r.min_date, datetime.date(2025, 10, 1))
+        self.assertTrue(r.hit)                          # 1490 < 0.95*1636=1554.2
+
+    def test_no_hit_when_above_threshold(self):
+        series = [{"Date": "2025-09-26", "C": 1000.0}, {"Date": "2025-09-29", "C": 990.0}]
+        r = cl.analyze_drop(series, datetime.date(2025, 9, 26), window=10, threshold=0.95)
+        self.assertFalse(r.hit)                          # 990 >= 950
+
+    def test_returns_none_when_kijitsu_missing(self):
+        self.assertIsNone(
+            cl.analyze_drop(self._series(), datetime.date(2025, 9, 25), window=10, threshold=0.95)
+        )
+
+    def test_window_limits_lookahead(self):
+        # window=1 なら 9/29(1610)のみ参照 → min=1610, hit=False
+        r = cl.analyze_drop(self._series(), datetime.date(2025, 9, 26), window=1, threshold=0.95)
+        self.assertEqual(r.min_close, 1610.0)
+        self.assertFalse(r.hit)
+
+
 class TestSettlementDate(unittest.TestCase):
     def test_8697_real_case(self):
         # 実データ: 9/22,24,25,26,29,30,10/1... 基準日9/30 → 指定日(2営業日前)=9/26

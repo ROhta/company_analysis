@@ -78,3 +78,43 @@ def settlement_date(record_date, trading_days):
     if len(before) < 2:
         return None
     return before[-2]
+
+
+AnalysisResult = collections.namedtuple(
+    "AnalysisResult", ["ref_close", "min_close", "min_date", "ratio", "hit"]
+)
+
+
+def analyze_drop(price_rows, kijitsu_date, window, threshold):
+    """指定日終値と、指定日以降 window 営業日の最安値(null除外)で下落判定する。
+
+    price_rows は {'Date','C'} のリスト。指定日が系列に無い/終値が欠損なら None。
+    対象期間に有効な終値が無ければ None。
+    """
+    rows = sorted(price_rows, key=lambda r: parse_date(r["Date"]))
+    idx = None
+    for i, r in enumerate(rows):
+        if parse_date(r["Date"]) == kijitsu_date:
+            idx = i
+            break
+    if idx is None:
+        return None
+    ref_close = _to_float(rows[idx].get("C"))
+    if ref_close is None or ref_close <= 0:
+        return None
+    after = rows[idx + 1: idx + 1 + window]
+    closes = [
+        (parse_date(r["Date"]), _to_float(r.get("C")))
+        for r in after
+    ]
+    closes = [(d, c) for d, c in closes if c is not None]
+    if not closes:
+        return None
+    min_date, min_close = min(closes, key=lambda dc: dc[1])
+    return AnalysisResult(
+        ref_close=ref_close,
+        min_close=min_close,
+        min_date=min_date,
+        ratio=min_close / ref_close,
+        hit=min_close < threshold * ref_close,
+    )
