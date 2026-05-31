@@ -15,6 +15,8 @@ class JQuantsError(RuntimeError):
 
 def _default_fetch(url, headers):
     """(status_code, body_text) を返す。HTTPError時もbodyを読んで返す。"""
+    # url は BASE_URL(固定)+ハードコードパス+urlencode済みパラメータで構成され、
+    # ユーザー入力はクエリ値のみ。ホスト/スキームは外部から変更されないため SSRF リスクなし。
     req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req) as resp:
@@ -36,10 +38,10 @@ class JQuantsClient:
         status, body = None, None
         for attempt in range(self._max_retries):
             status, body = self._fetch(url, headers)
-            if status == 429:
+            if status != 429:
+                return status, body
+            if attempt < self._max_retries - 1:
                 self._sleep(min(2 ** attempt, 30))
-                continue
-            return status, body
         return status, body
 
     def _get(self, path, params):
@@ -52,7 +54,10 @@ class JQuantsClient:
                 query["pagination_key"] = pagination_key
             url = "{}{}?{}".format(BASE_URL, path, urllib.parse.urlencode(query))
             status, body = self._request_with_retry(url, headers)
-            payload = json.loads(body)
+            try:
+                payload = json.loads(body)
+            except json.JSONDecodeError:
+                raise JQuantsError("HTTP {}: (non-JSON body) {}".format(status, body[:200]))
             if status != 200:
                 raise JQuantsError(payload.get("message", "HTTP {}: {}".format(status, body)))
             results.extend(payload.get("data", []))

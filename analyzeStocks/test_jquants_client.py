@@ -56,6 +56,19 @@ class TestJQuantsClient(unittest.TestCase):
             client.fins_summary(code="86970")
         self.assertIn("subscription", str(ctx.exception))
 
+    def test_raises_on_non_json_body(self):
+        t = FakeTransport([(503, "<html>Service Unavailable</html>")])
+        client = JQuantsClient(api_key="KEY", fetch=t)
+        with self.assertRaises(JQuantsError):
+            client.fins_summary()
+
+    def test_raises_after_exhausting_retries(self):
+        t = FakeTransport([(429, json.dumps({"message": "rate"})) for _ in range(3)])
+        sleeps = []
+        client = JQuantsClient(api_key="KEY", fetch=t, max_retries=3, sleep=sleeps.append)
+        with self.assertRaises(JQuantsError):
+            client.fins_summary()
+
 
 if __name__ == "__main__":
     unittest.main()
