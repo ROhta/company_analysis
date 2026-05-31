@@ -5,6 +5,7 @@ import csv
 import datetime
 import os
 import sys
+import urllib.error
 
 import calendar_logic as cl
 from jquants_client import JQuantsClient, JQuantsError
@@ -17,14 +18,16 @@ def build_market_index(master_rows):
     """master行から {code: (CoName, MktNm)} を作る。プライム/スタンダードのみ。"""
     index = {}
     for row in master_rows:
-        if row.get("MktNm") in TARGET_MARKETS:
-            index[row["Code"]] = (row.get("CoName", ""), row.get("MktNm", ""))
+        code = row.get("Code")
+        if code and row.get("MktNm") in TARGET_MARKETS:
+            index[code] = (row.get("CoName", ""), row.get("MktNm", ""))
     return index
 
 
 def run(client, target_month, threshold, window, limit=None):
-    """スクリーニング本体。該当銘柄の dict リストを返し、結果を標準出力する。
+    """スクリーニング本体。該当銘柄の dict リストを返す。
 
+    ヒット銘柄はstdout、進捗・サマリ・警告はstderrに出力する。
     limit: 候補イベントを先頭 N 件に制限する（None=全件）。大規模月での試験実行用。
     """
     # 開示日を1日ずつスキャンして決算サマリ行を蓄積する
@@ -49,6 +52,8 @@ def run(client, target_month, threshold, window, limit=None):
 
     # 候補が多数の月では全件1コールの方が per-code ループより安価なため意図的に全件取得
     market_index = build_market_index(client.equities_master())
+    if not market_index:
+        raise JQuantsError("市場マスタ(equities/master)が空です。プラン/契約でユニバースが取得できているか確認してください。")
 
     total = len(events)
     hits = []
@@ -64,13 +69,16 @@ def run(client, target_month, threshold, window, limit=None):
             to=(record + datetime.timedelta(days=BARS_PAD_DAYS + window * 2)).strftime("%Y%m%d"),
         )
         if not bars:
+            print("[warn] {} 株価barsが空。スキップ".format(ev.code), file=sys.stderr)
             continue
         trading_days = [cl.parse_date(b["Date"]) for b in bars]
         kijitsu = cl.settlement_date(record, trading_days)
         if kijitsu is None:
+            print("[warn] {} 基準日{}前の取引日が不足。スキップ".format(ev.code, record), file=sys.stderr)
             continue
         result = cl.analyze_drop(bars, kijitsu, window=window, threshold=threshold)
         if result is None:
+            print("[warn] {} 指定日の終値取得不可。スキップ".format(ev.code), file=sys.stderr)
             continue
         if result.window_used < window:
             print(
@@ -127,6 +135,11 @@ def main(argv=None):
                         help="APIリクエストの最大レート(req/sec)。レート制限緩和用（既定3.0）")
     args = parser.parse_args(argv)
 
+    if args.window < 1:
+        parser.error("--window は1以上を指定してください")
+    if not (0 < args.threshold <= 1):
+        parser.error("--threshold は 0 より大きく 1 以下の値を指定してください")
+
     api_key = os.environ.get("JQUANTS_API_KEY", "")
     target_month = args.month or cl.default_target_month(datetime.date.today())
     if not args.month:
@@ -139,6 +152,12 @@ def main(argv=None):
         hits = run(client, target_month, args.threshold, args.window, limit=args.limit)
     except JQuantsError as e:
         print("[error] {}".format(e), file=sys.stderr)
+        return 1
+    except (urllib.error.URLError, TimeoutError) as e:
+        print("[error] ネットワーク失敗(timeout等): {}。--max-rps を下げて再試行してください".format(e), file=sys.stderr)
+        return 1
+    except (ValueError, KeyError) as e:
+        print("[error] APIレスポンスの形式が想定外です: {}".format(e), file=sys.stderr)
         return 1
 
     if args.csv:
