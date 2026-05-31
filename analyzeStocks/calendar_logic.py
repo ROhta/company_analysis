@@ -66,3 +66,15 @@ def filter_events_by_month(events, year_month):
     """year_month('YYYY-MM') に record_date が一致するイベントだけ返す。"""
     year, month = (int(x) for x in year_month.split("-"))
     return [e for e in events if e.record_date.year == year and e.record_date.month == month]
+
+
+def settlement_date(record_date, trading_days):
+    """基準日 record_date の2営業日前(=指定日/権利付最終日)を返す。
+
+    trading_days は date のリスト(順不同可)。record_date より前の取引日が
+    2日に満たない場合は None。
+    """
+    before = sorted(d for d in trading_days if d < record_date)
+    if len(before) < 2:
+        return None
+    return before[-2]

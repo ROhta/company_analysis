@@ -26,6 +26,30 @@ class TestParseDate(unittest.TestCase):
         self.assertEqual(cl.parse_date("20250930"), datetime.date(2025, 9, 30))
 
 
+class TestSettlementDate(unittest.TestCase):
+    def test_8697_real_case(self):
+        # 実データ: 9/22,24,25,26,29,30,10/1... 基準日9/30 → 指定日(2営業日前)=9/26
+        trading_days = [datetime.date(2025, 9, d) for d in (22, 24, 25, 26, 29, 30)]
+        trading_days += [datetime.date(2025, 10, d) for d in (1, 2, 3)]
+        self.assertEqual(
+            cl.settlement_date(datetime.date(2025, 9, 30), trading_days),
+            datetime.date(2025, 9, 26),
+        )
+
+    def test_month_end_on_weekend(self):
+        # 8/31(2025)が日曜のケース: 取引日 8/27,28,29 → 8/31の2営業日前=8/28
+        trading_days = [datetime.date(2025, 8, d) for d in (27, 28, 29)]
+        self.assertEqual(
+            cl.settlement_date(datetime.date(2025, 8, 31), trading_days),
+            datetime.date(2025, 8, 28),
+        )
+
+    def test_returns_none_when_insufficient_days(self):
+        self.assertIsNone(
+            cl.settlement_date(datetime.date(2025, 9, 30), [datetime.date(2025, 9, 29)])
+        )
+
+
 class TestFilterEventsByMonth(unittest.TestCase):
     def test_keeps_only_matching_year_month(self):
         events = [
