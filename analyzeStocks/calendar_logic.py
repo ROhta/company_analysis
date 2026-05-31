@@ -60,3 +60,9 @@ def dividend_events(summary_rows):
         if key not in events:
             events[key] = DividendEvent(code, record_date, kind, amount)
     return sorted(events.values(), key=lambda e: (e.record_date, e.code))
+
+
+def filter_events_by_month(events, year_month):
+    """year_month('YYYY-MM') に record_date が一致するイベントだけ返す。"""
+    year, month = (int(x) for x in year_month.split("-"))
+    return [e for e in events if e.record_date.year == year and e.record_date.month == month]

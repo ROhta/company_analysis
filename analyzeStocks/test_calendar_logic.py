@@ -26,6 +26,17 @@ class TestParseDate(unittest.TestCase):
         self.assertEqual(cl.parse_date("20250930"), datetime.date(2025, 9, 30))
 
 
+class TestFilterEventsByMonth(unittest.TestCase):
+    def test_keeps_only_matching_year_month(self):
+        events = [
+            cl.DividendEvent("1", datetime.date(2025, 9, 30), "2Q", 25.0),
+            cl.DividendEvent("2", datetime.date(2025, 3, 31), "FY", 10.0),
+            cl.DividendEvent("3", datetime.date(2025, 9, 1), "FY", 5.0),
+        ]
+        got = cl.filter_events_by_month(events, "2025-09")
+        self.assertEqual({e.code for e in got}, {"1", "3"})
+
+
 class TestDividendEvents(unittest.TestCase):
     def _rows(self):
         return [
