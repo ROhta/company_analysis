@@ -1,5 +1,7 @@
 # analyzeStocks/test_screen_dividend_drop.py
+import csv
 import io
+import tempfile
 import unittest
 from contextlib import redirect_stdout
 
@@ -20,6 +22,7 @@ class FakeClient:
         self._bars = bars  # {code: [rows]}
         self._summary_by_date = summary_by_date  # {"YYYY-MM-DD": [rows]} or None
         self.fins_summary_calls = []  # 呼び出し記録
+        self.bars_daily_count = 0  # bars_daily 呼び出し回数
 
     def fins_summary(self, date=None, from_=None, to=None, code=None):
         self.fins_summary_calls.append({"date": date, "from_": from_, "to": to, "code": code})
@@ -33,6 +36,7 @@ class FakeClient:
         return self._master
 
     def bars_daily(self, code, date=None, from_=None, to=None):
+        self.bars_daily_count += 1
         return self._bars.get(code, [])
 
 
@@ -129,21 +133,24 @@ class TestMainSmoke(unittest.TestCase):
             {"Code": "10001", "CoName": "A社", "MktNm": "プライム"},
             {"Code": "10002", "CoName": "B社", "MktNm": "プライム"},
         ]
+        # settlement_date が非 None になるよう 9/30 基準日の2営業日前=9/26 を含む bars を設定
         # どちらも下落しない（ヒットなし）ようにバーを設定
         flat_bars = [
+            {"Date": "2025-09-24", "C": 1000.0},
+            {"Date": "2025-09-25", "C": 1000.0},
             {"Date": "2025-09-26", "C": 1000.0},
             {"Date": "2025-09-29", "C": 990.0},
         ]
         bars = {"10001": flat_bars, "10002": flat_bars}
-        client = FakeClient(None, master, bars, summary_by_date=summary_by_date)
-        # limit=1: 候補が2件あっても1件だけ処理
-        sdd.run(client, "2025-09", threshold=0.95, window=10, limit=1)
+        # limit=1: 候補が2件あっても bars_daily は高々1回しか呼ばれない
+        client1 = FakeClient(None, master, bars, summary_by_date=summary_by_date)
+        sdd.run(client1, "2025-09", threshold=0.95, window=10, limit=1)
         # limit=None: 2件処理（bars_daily が2回呼ばれる）
         client2 = FakeClient(None, master, bars, summary_by_date=summary_by_date)
         sdd.run(client2, "2025-09", threshold=0.95, window=10, limit=None)
-        # limit=1 の方が bars_daily 呼び出しが少ない（またはゼロ）であることを確認
-        # （間接的に候補件数が制限されていることを検証）
-        # ここでは単純に「クラッシュしないこと」を確認（limit機能の存在確認）
+        # limit=1 の方が bars_daily 呼び出し回数が少ない（候補件数が実際に制限されている）
+        self.assertLess(client1.bars_daily_count, client2.bars_daily_count,
+                        "limit=1 のとき bars_daily 呼び出しが limit=None より少ないはず")
 
     def test_range_out_of_scope_returns_empty(self):
         """範囲外月ではJQuantsErrorをキャッチして空リストを返す（穏当に終わる）。"""
@@ -162,6 +169,55 @@ class TestMainSmoke(unittest.TestCase):
         # ここでは run() が JQuantsError を上位に投げることを確認。
         with self.assertRaises(JQuantsError):
             sdd.run(client, "2026-06", threshold=0.95, window=10)
+
+
+class TestWriteCsv(unittest.TestCase):
+    """write_csv のCSV出力内容を検証する。"""
+
+    def _sample_hits(self):
+        return [{"code": "86970", "name": "テスト社", "market": "プライム", "kijitsu": "2025-09-26"}]
+
+    def test_bom_present(self):
+        """出力ファイルが BOM（UTF-8 BOM = 0xEF 0xBB 0xBF）で始まる。"""
+        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
+            path = tmp.name
+        try:
+            sdd.write_csv(path, self._sample_hits())
+            with open(path, "rb") as f:
+                raw = f.read()
+            self.assertTrue(raw.startswith(b"\xef\xbb\xbf"), "BOM が見つかりません")
+        finally:
+            import os
+            os.unlink(path)
+
+    def test_header_row(self):
+        """先頭行が コード,銘柄名,市場,指定日 である。"""
+        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
+            path = tmp.name
+        try:
+            sdd.write_csv(path, self._sample_hits())
+            with open(path, newline="", encoding="utf-8-sig") as f:
+                reader = csv.reader(f)
+                header = next(reader)
+            self.assertEqual(header, ["コード", "銘柄名", "市場", "指定日"])
+        finally:
+            import os
+            os.unlink(path)
+
+    def test_data_row(self):
+        """hits 1件が正しい行として出力される。"""
+        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
+            path = tmp.name
+        try:
+            sdd.write_csv(path, self._sample_hits())
+            with open(path, newline="", encoding="utf-8-sig") as f:
+                reader = csv.reader(f)
+                next(reader)  # ヘッダ行をスキップ
+                row = next(reader)
+            self.assertEqual(row, ["86970", "テスト社", "プライム", "2025-09-26"])
+        finally:
+            import os
+            os.unlink(path)
 
 
 if __name__ == "__main__":
