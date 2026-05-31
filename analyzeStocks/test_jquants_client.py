@@ -1,8 +1,9 @@
 # analyzeStocks/test_jquants_client.py
 import json
+import tempfile
 import unittest
 
-from jquants_client import JQuantsClient, JQuantsError
+from jquants_client import CachingClient, JQuantsClient, JQuantsError
 
 
 class FakeTransport:
@@ -111,6 +112,128 @@ class TestRequestPacing(unittest.TestCase):
         client.fins_summary(date="2025-05-14")
         self.assertEqual(len(sleeps), 1)
         self.assertGreater(sleeps[0], 0)
+
+
+class FakeInner:
+    """CachingClient テスト用のシンプルなfakeクライアント。"""
+    def __init__(self, summary_data=None, bars_data=None, raise_on_call=False):
+        self._summary_data = summary_data or []
+        self._bars_data = bars_data or []
+        self._raise_on_call = raise_on_call
+        self.fins_summary_count = 0
+        self.bars_daily_count = 0
+        self.equities_master_count = 0
+
+    def fins_summary(self, date=None, **kwargs):
+        self.fins_summary_count += 1
+        if self._raise_on_call:
+            raise JQuantsError("テストエラー")
+        return self._summary_data
+
+    def bars_daily(self, code, from_=None, to=None, **kwargs):
+        self.bars_daily_count += 1
+        if self._raise_on_call:
+            raise JQuantsError("テストエラー")
+        return self._bars_data
+
+    def equities_master(self, **kwargs):
+        self.equities_master_count += 1
+        return [{"Code": "99990"}]
+
+
+class TestCachingClientFinsSummary(unittest.TestCase):
+    """CachingClient.fins_summary のキャッシュ動作を検証する。"""
+
+    def test_miss_calls_inner_and_saves_cache(self):
+        """キャッシュなし: inner を呼び、JSONファイルを保存し、返り値が一致する。"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            inner = FakeInner(summary_data=[{"Code": "1"}])
+            client = CachingClient(inner, tmpdir)
+            result = client.fins_summary(date="2025-10-01")
+            self.assertEqual(result, [{"Code": "1"}])
+            self.assertEqual(inner.fins_summary_count, 1)
+            # キャッシュファイルが作成されている
+            import os
+            cache_path = os.path.join(tmpdir, "summary", "2025-10-01.json")
+            self.assertTrue(os.path.exists(cache_path))
+
+    def test_hit_does_not_call_inner(self):
+        """キャッシュあり: 2回目は inner を呼ばずキャッシュから返す。"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            inner = FakeInner(summary_data=[{"Code": "1"}])
+            client = CachingClient(inner, tmpdir)
+            # 1回目: miss → 保存
+            result1 = client.fins_summary(date="2025-10-01")
+            # 2回目: hit → inner 呼ばず
+            result2 = client.fins_summary(date="2025-10-01")
+            self.assertEqual(result1, result2)
+            self.assertEqual(inner.fins_summary_count, 1)  # 1回のみ
+
+    def test_error_does_not_save_cache_and_propagates(self):
+        """inner が例外を投げた場合、キャッシュファイルを書かず例外を伝播する。"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            inner = FakeInner(raise_on_call=True)
+            client = CachingClient(inner, tmpdir)
+            with self.assertRaises(JQuantsError):
+                client.fins_summary(date="2025-10-01")
+            # キャッシュファイルが存在しない
+            import os
+            cache_path = os.path.join(tmpdir, "summary", "2025-10-01.json")
+            self.assertFalse(os.path.exists(cache_path))
+
+    def test_resume_after_error(self):
+        """inner 失敗→キャッシュなし→inner 正常化→取得・保存される（再開相当）。"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            inner = FakeInner(raise_on_call=True)
+            client = CachingClient(inner, tmpdir)
+            # 1回目: 失敗 → キャッシュなし
+            with self.assertRaises(JQuantsError):
+                client.fins_summary(date="2025-10-01")
+            # inner を正常化して再試行
+            inner._raise_on_call = False
+            inner._summary_data = [{"Code": "RESUME"}]
+            result = client.fins_summary(date="2025-10-01")
+            self.assertEqual(result, [{"Code": "RESUME"}])
+            # 今度はキャッシュが保存される
+            import os
+            cache_path = os.path.join(tmpdir, "summary", "2025-10-01.json")
+            self.assertTrue(os.path.exists(cache_path))
+
+    def test_no_cache_when_date_is_none(self):
+        """date 未指定の呼び出しは inner に委譲してキャッシュしない。"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            inner = FakeInner(summary_data=[{"Code": "1"}])
+            client = CachingClient(inner, tmpdir)
+            client.fins_summary()  # date=None
+            client.fins_summary()  # date=None (2回目)
+            # inner は2回呼ばれる（キャッシュされない）
+            self.assertEqual(inner.fins_summary_count, 2)
+
+
+class TestCachingClientEquitiesMaster(unittest.TestCase):
+    """equities_master はキャッシュせず毎回 inner を呼ぶことを検証する。"""
+
+    def test_equities_master_always_calls_inner(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            inner = FakeInner()
+            client = CachingClient(inner, tmpdir)
+            client.equities_master()
+            client.equities_master()
+            self.assertEqual(inner.equities_master_count, 2)
+
+
+class TestCachingClientBarsDaily(unittest.TestCase):
+    """bars_daily のキャッシュ動作を検証する。"""
+
+    def test_bars_daily_caches_on_second_call(self):
+        """2回目は inner を呼ばずキャッシュから返す。"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            inner = FakeInner(bars_data=[{"Date": "2025-09-30", "C": 1000.0}])
+            client = CachingClient(inner, tmpdir)
+            result1 = client.bars_daily("86970", from_="20250901", to="20251031")
+            result2 = client.bars_daily("86970", from_="20250901", to="20251031")
+            self.assertEqual(result1, result2)
+            self.assertEqual(inner.bars_daily_count, 1)
 
 
 if __name__ == "__main__":

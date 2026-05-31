@@ -1,6 +1,7 @@
 # analyzeStocks/jquants_client.py
 """J-Quants API V2 の薄いクライアント(標準ライブラリのみ)。"""
 import json
+import os
 import time
 import urllib.error
 import urllib.parse
@@ -96,3 +97,60 @@ class JQuantsClient:
         if to:
             params["to"] = to
         return self._get("/equities/bars/daily", params)
+
+
+class CachingClient:
+    """JQuantsClient と同じI/Fを持つディスクキャッシュラッパー。
+
+    fins_summary(date=d) および bars_daily のレスポンスを JSON ファイルにキャッシュし、
+    再実行時はAPI呼び出しをスキップして続きから再開できる。
+    - 成功時のみキャッシュ保存（失敗は絶対にキャッシュしない）。
+    - equities_master は新規上場の鮮度のためキャッシュせず inner に委譲。
+    - date 未指定の fins_summary 呼び出しは inner に委譲。
+    """
+
+    def __init__(self, inner, cache_dir):
+        self._inner = inner
+        self._cache_dir = cache_dir
+
+    def _read_cache(self, path):
+        """キャッシュファイルが存在すれば読んで返す。なければ None。"""
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        return None
+
+    def _write_cache(self, path, data):
+        """data を JSON でキャッシュファイルに保存する。ディレクトリは自動作成。"""
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+
+    def fins_summary(self, date=None, **kwargs):
+        """date 指定時のみキャッシュ対象。未指定は inner に委譲。"""
+        if date is None:
+            return self._inner.fins_summary(date=date, **kwargs)
+        path = os.path.join(self._cache_dir, "summary", "{}.json".format(date))
+        cached = self._read_cache(path)
+        if cached is not None:
+            return cached
+        result = self._inner.fins_summary(date=date, **kwargs)
+        self._write_cache(path, result)
+        return result
+
+    def equities_master(self, **kwargs):
+        """新規上場の鮮度のためキャッシュせず inner に委譲する。"""
+        return self._inner.equities_master(**kwargs)
+
+    def bars_daily(self, code, from_=None, to=None, **kwargs):
+        """from_/to の組み合わせをキーにキャッシュする。"""
+        path = os.path.join(
+            self._cache_dir, "bars",
+            "{}_{}_{}".format(code, from_ or "", to or "") + ".json",
+        )
+        cached = self._read_cache(path)
+        if cached is not None:
+            return cached
+        result = self._inner.bars_daily(code, from_=from_, to=to, **kwargs)
+        self._write_cache(path, result)
+        return result
