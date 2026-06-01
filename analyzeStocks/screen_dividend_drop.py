@@ -26,6 +26,11 @@ _PLAN_RPS = {
 TARGET_MARKETS = ("プライム", "スタンダード")
 BARS_PAD_DAYS = 20  # 指定日算出のため基準日前後に確保する暦日
 
+# main() の終了コード
+EXIT_OK = 0          # 成功
+EXIT_ERROR = 1       # 恒久的エラー（対象月が範囲外・空ユニバース・形式異常など。再試行しても直らない）
+EXIT_RETRYABLE = 2   # 一時的エラー（レート制限・ネットワーク。時間をおいて再試行すれば回復しうる）
+
 
 def build_market_index(master_rows):
     """master行から {code: (CoName, MktNm)} を作る。プライム/スタンダードのみ。"""
@@ -160,6 +165,10 @@ def resolve_min_interval(plan, max_rps):
 
 
 def main(argv=None):
+    """CLIエントリポイント。
+
+    終了コード: 0=成功 / 1=恒久エラー(再試行不可) / 2=一時エラー(レート制限・ネットワーク, 再試行可)。
+    """
     parser = argparse.ArgumentParser(description="配当権利落ち後の下落銘柄スクリーニング")
     parser.add_argument("--month", help="対象の権利確定月 YYYY-MM(未指定なら約4ヶ月前)")
     parser.add_argument("--threshold", type=float, default=0.95)
@@ -224,23 +233,24 @@ def main(argv=None):
                 "キャッシュで即スキップして続きから再開します（上位プランなら --plan light 等で高速化）。",
                 file=sys.stderr,
             )
-        return 1
+            return EXIT_RETRYABLE
+        return EXIT_ERROR
     except (urllib.error.URLError, TimeoutError) as e:
-        print("[error] ネットワーク失敗(timeout等): {}。--plan/--max-rps を下げて再試行してください".format(e),
+        print("[error] ネットワーク失敗(timeout等): {}。時間をおいて再実行してください".format(e),
               file=sys.stderr)
-        return 1
+        return EXIT_RETRYABLE
     except (ValueError, KeyError) as e:
         print("[error] APIレスポンスの形式が想定外です: {}".format(e), file=sys.stderr)
-        return 1
+        return EXIT_ERROR
 
     if args.csv:
         try:
             write_csv(args.csv, hits)
         except OSError as e:
             print("[error] CSV出力失敗: {}".format(e), file=sys.stderr)
-            return 1
+            return EXIT_ERROR
         print("[info] 該当銘柄を {} に出力しました".format(args.csv), file=sys.stderr)
-    return 0
+    return EXIT_OK
 
 
 if __name__ == "__main__":

@@ -433,9 +433,28 @@ class TestRateLimitHint(unittest.TestCase):
         with unittest.mock.patch.object(sdd, "JQuantsClient", factory):
             with redirect_stderr(err):
                 result = sdd.main(["--month", "2025-09", "--no-cache"])
-        self.assertEqual(result, 1)
+        self.assertEqual(result, 2)  # レート制限=一時エラー(再試行可)
         self.assertIn("[hint]", err.getvalue())
         self.assertIn("再開", err.getvalue())
+
+    def test_network_error_returns_retryable_code(self):
+        """ネットワーク失敗(URLError)も一時エラー(exit 2)を返す。"""
+        import urllib.error
+
+        class NetClient:
+            def fins_summary(self, date=None, **kwargs):
+                raise urllib.error.URLError("timeout")
+
+            def equities_master(self, **kwargs):
+                return []
+
+        def factory(*args, **kwargs):
+            return NetClient()
+
+        with unittest.mock.patch.object(sdd, "JQuantsClient", factory):
+            with redirect_stderr(io.StringIO()):
+                result = sdd.main(["--month", "2025-09", "--no-cache"])
+        self.assertEqual(result, 2)
 
 
 if __name__ == "__main__":
