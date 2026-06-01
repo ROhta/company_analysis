@@ -12,6 +12,13 @@
 
 ---
 
+> **実装後のアップデート（計画との差分・2026-06-01追記）**
+> 本計画はTask 1〜10の初期設計。実装中に以下が変わった。**現在の正は `analyzeStocks/README.md` とソース（全テスト77件）**で、本書は計画時点の記録として残す。
+> - 列挙: `fins_summary(from_/to)` 一括 → `fins_summary(date=)` を開示日(平日)で反復（APIが from/to 非対応のため）。`disclosure_dates` の窓は対象月末+60日（約44コール）。
+> - 追加: `--limit` / `--plan`（プラン別レート） / `--no-cache` / ディスクキャッシュ `CachingClient` / 終了コード分離(0/1/2) / `--retry`・`--retry-wait`（自動再試行）。
+> - `run_until_done.sh` を一度追加したが、再試行をPython(`--retry`)へ統合し削除。
+> - 型は `typing.NamedTuple`（`DividendEvent` / `AnalysisResult`）。
+
 ## ファイル構成
 
 ```

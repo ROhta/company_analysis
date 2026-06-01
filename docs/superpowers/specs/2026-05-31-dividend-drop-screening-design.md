@@ -4,6 +4,13 @@
 - 対象ディレクトリ: `analyzeStocks/`
 - 置換対象: `screen_10days_drop_95pct.zsh`（本ツールに統合し削除。`get_id_token.zsh` は既にV2移行で削除済み）
 
+> **実装後のアップデート（最終仕様との差分・2026-06-01追記）**
+> 以下は本設計から実装中に変わった点。**現在の使い方・仕様の正は `analyzeStocks/README.md` とソース**で、本書は設計時点の記録として残す。
+> - **enumeration**: `/fins/summary` は `from`/`to` 非対応（HTTP 400）と判明 → 開示日(平日)を `date=` で反復取得する方式に変更。スキャン窓は「対象月末+60日」（約44コール、45日開示ルール準拠）。
+> - **CLIオプション追加**: `--plan`（プラン別レート, 既定free）/ `--limit` / `--no-cache` / `--retry` / `--retry-wait`。
+> - **レート/堅牢化**: ディスクキャッシュ `.jq_cache/`（過去データは不変→成功時のみ保存・再実行で続きから）、終了コード分離（0=成功 / 1=恒久 / 2=一時）、一時エラー時の自動再試行 `--retry`（当初 `run_until_done.sh` を追加したが後にPythonへ統合し削除）。
+> - **型**: `DividendEvent` / `AnalysisResult` は `typing.NamedTuple`。
+
 ## 1. 背景・目的
 
 従来は「Comet（Perplexityブラウザ）でSBI証券の優待株ページを開き、`extract-stock` スキルで
