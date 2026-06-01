@@ -32,6 +32,10 @@ class JQuantsClient:
                  min_interval=0.34):
         if not api_key:
             raise JQuantsError("JQUANTS_API_KEY が設定されていません")
+        if max_retries < 1:
+            raise JQuantsError("max_retries は1以上である必要があります")
+        if min_interval < 0:
+            raise JQuantsError("min_interval は0以上である必要があります")
         self._api_key = api_key
         self._fetch = fetch
         self._max_retries = max_retries

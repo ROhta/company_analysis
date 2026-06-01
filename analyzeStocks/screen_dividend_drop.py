@@ -176,11 +176,19 @@ def _run_once(args, target_month, min_interval):
     except JQuantsError as e:
         print("[error] {}".format(e), file=sys.stderr)
         if "rate limit" in str(e).lower():
-            print(
-                "[hint] レート制限です。--retry を付けるか、数分待って同じコマンドを再実行すれば、"
-                "取得済み分はキャッシュで即スキップして続きから再開します（上位プランなら --plan light 等で高速化）。",
-                file=sys.stderr,
-            )
+            if args.no_cache:
+                print(
+                    "[hint] レート制限です。--no-cache のため再実行は最初からになります。"
+                    "キャッシュを有効化（--no-cache を外す）して --retry すると続きから再開できます"
+                    "（上位プランなら --plan light 等で高速化）。",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    "[hint] レート制限です。--retry を付けるか、数分待って同じコマンドを再実行すれば、"
+                    "取得済み分はキャッシュで即スキップして続きから再開します（上位プランなら --plan light 等で高速化）。",
+                    file=sys.stderr,
+                )
             return EXIT_RETRYABLE
         return EXIT_ERROR
     except (urllib.error.URLError, TimeoutError) as e:

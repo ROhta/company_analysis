@@ -172,23 +172,17 @@ class TestMainSmoke(unittest.TestCase):
         self.assertIn("[warn]", err.getvalue())
         self.assertIn("86970", err.getvalue())
 
-    def test_range_out_of_scope_returns_empty(self):
-        """範囲外月ではJQuantsErrorをキャッチして空リストを返す（穏当に終わる）。"""
-        def fins_summary_raises(date=None, **kwargs):
-            raise JQuantsError("範囲外")
-
+    def test_run_raises_jquants_error_to_caller(self):
+        """run() はAPIエラー(JQuantsError)を握りつぶさず呼び出し元へ送出する（main側で捕捉し終了コード化）。"""
         class ErrorClient:
             def fins_summary(self, date=None, **kwargs):
                 raise JQuantsError("範囲外")
+
             def equities_master(self, **kwargs):
                 return []
 
-        client = ErrorClient()
-        # JQuantsError を run() の呼び出し元 main() でキャッチするので
-        # run() 自体は raise する。main() がエラーを握りつぶす。
-        # ここでは run() が JQuantsError を上位に投げることを確認。
         with self.assertRaises(JQuantsError):
-            sdd.run(client, "2026-06", threshold=0.95, window=10)
+            sdd.run(ErrorClient(), "2026-06", threshold=0.95, window=10)
 
 
 class TestWriteCsv(unittest.TestCase):
@@ -455,6 +449,23 @@ class TestRateLimitHint(unittest.TestCase):
             with redirect_stderr(io.StringIO()):
                 result = sdd.main(["--month", "2025-09", "--no-cache"])
         self.assertEqual(result, 2)
+
+    def test_rate_limit_hint_without_cache_says_from_start(self):
+        """--no-cache 時のヒントは「最初から」と出し分ける（キャッシュ続きからと断定しない）。"""
+        class RateLimitedClient:
+            def fins_summary(self, date=None, **kwargs):
+                raise JQuantsError("Rate limit exceeded. Please try again later.")
+
+            def equities_master(self, **kwargs):
+                return []
+
+        err = io.StringIO()
+        with unittest.mock.patch.object(
+                sdd, "JQuantsClient", lambda *a, **k: RateLimitedClient()):
+            with redirect_stderr(err):
+                result = sdd.main(["--month", "2025-09", "--no-cache"])
+        self.assertEqual(result, 2)
+        self.assertIn("最初から", err.getvalue())
 
 
 class TestRetryLoop(unittest.TestCase):

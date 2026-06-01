@@ -2,11 +2,11 @@
 
 > **エージェント作業者向け:** 必須サブスキル: superpowers:subagent-driven-development（推奨）または superpowers:executing-plans を使い、本計画をタスク単位で実装すること。各ステップは進捗管理のためチェックボックス（`- [ ]`）記法を用いる。
 
-**Goal:** J-Quants V2 のみを使い、配当を出すプライム/スタンダード銘柄の「権利落ち後10営業日以内に指定日終値の95%未満まで下落した銘柄」を end-to-end で抽出するPythonツールを作る。
+**目的:** J-Quants V2 のみを使い、配当を出すプライム/スタンダード銘柄の「権利落ち後10営業日以内に指定日終値の95%未満まで下落した銘柄」を end-to-end で抽出するPythonツールを作る。
 
-**Architecture:** 純粋ロジック（`calendar_logic.py`）／薄いI/Oクライアント（`jquants_client.py`）／CLIオーケストレーション（`screen_dividend_drop.py`）の3分割。純粋関数を `unittest` で厚くテストし、クライアントは注入可能な transport でネットワーク非依存にテストする。
+**アーキテクチャ:** 純粋ロジック（`calendar_logic.py`）／薄いI/Oクライアント（`jquants_client.py`）／CLIオーケストレーション（`screen_dividend_drop.py`）の3分割。純粋関数を `unittest` で厚くテストし、クライアントは注入可能な transport でネットワーク非依存にテストする。
 
-**Tech Stack:** Python 3 標準ライブラリのみ（`urllib.request` / `json` / `datetime` / `csv` / `argparse` / `unittest`）。第三者依存なし。設計書: `docs/superpowers/specs/2026-05-31-dividend-drop-screening-design.md`。
+**技術スタック:** Python 3 標準ライブラリのみ（`urllib.request` / `json` / `datetime` / `csv` / `argparse` / `unittest`）。第三者依存なし。設計書: `docs/superpowers/specs/2026-05-31-dividend-drop-screening-design.md`。
 
 **前提:** 作業は feature ブランチ `feat/jquants-v2-and-dividend-screening`（PR #14）上で継続。テストは `analyzeStocks/` ディレクトリで実行（`cd analyzeStocks && python3 -m unittest ...`）。
 

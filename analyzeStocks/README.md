@@ -15,7 +15,7 @@
 
 ```sh
 export JQUANTS_API_KEY=<発行したキー>
-cd analyzeStocks   # import とキャッシュがスクリプト基準のため、このディレクトリで実行する
+cd analyzeStocks   # （任意）リポジトリ直下から python3 analyzeStocks/screen_dividend_drop.py ... でも可。import・キャッシュはスクリプト基準でCWDに依存しない
 
 # Free プランの場合（既定・十分遅いペース）
 python3 screen_dividend_drop.py --month 2025-09 --plan free

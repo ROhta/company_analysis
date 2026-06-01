@@ -22,6 +22,14 @@ class TestJQuantsClient(unittest.TestCase):
         with self.assertRaises(JQuantsError):
             JQuantsClient(api_key="")
 
+    def test_rejects_invalid_max_retries(self):
+        with self.assertRaises(JQuantsError):
+            JQuantsClient(api_key="KEY", max_retries=0)
+
+    def test_rejects_negative_min_interval(self):
+        with self.assertRaises(JQuantsError):
+            JQuantsClient(api_key="KEY", min_interval=-1.0)
+
     def test_sends_x_api_key_header(self):
         t = FakeTransport([(200, json.dumps({"data": [{"Code": "1"}]}))])
         client = JQuantsClient(api_key="KEY", fetch=t)
