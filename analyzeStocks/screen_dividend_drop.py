@@ -254,6 +254,17 @@ def main(argv=None, sleep=time.sleep):
         parser.error("--threshold は 0 より大きく 1 以下の値を指定してください")
     if args.retry_wait < 0:
         parser.error("--retry-wait は0以上を指定してください")
+    if args.limit is not None and args.limit < 1:
+        parser.error("--limit は1以上を指定してください")
+    if args.max_rps is not None and args.max_rps < 0:
+        parser.error("--max-rps は0以上を指定してください（0はスロットル無効）")
+    if args.month is not None:
+        parts = args.month.split("-")
+        if not (len(parts) == 2
+                and len(parts[0]) == 4 and parts[0].isdigit()
+                and len(parts[1]) == 2 and parts[1].isdigit()
+                and 1 <= int(parts[1]) <= 12):
+            parser.error("--month は YYYY-MM 形式（月は01〜12）で指定してください")
 
     target_month = args.month or cl.default_target_month(datetime.date.today())
     if not args.month:

@@ -515,5 +515,38 @@ class TestRetryLoop(unittest.TestCase):
         self.assertEqual(sleeps, [])      # 待たずに即停止
 
 
+class TestCliValidation(unittest.TestCase):
+    """引数バリデーション（不正値は argparse の parser.error → SystemExit）。"""
+
+    def _expect_exit(self, argv):
+        with redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                sdd.main(argv)
+
+    def test_negative_limit_rejected(self):
+        self._expect_exit(["--month", "2025-09", "--limit", "-1"])
+
+    def test_negative_max_rps_rejected(self):
+        self._expect_exit(["--month", "2025-09", "--max-rps", "-1"])
+
+    def test_bad_month_format_rejected(self):
+        for bad in ["2025-13", "2025/09", "garbage", "2025-9"]:
+            self._expect_exit(["--month", bad])
+
+    def test_max_rps_zero_passes_validation(self):
+        """--max-rps 0（スロットル無効）は許可される（過剰に弾かない回帰防止）。"""
+        class EmptyClient:
+            def fins_summary(self, date=None, **kwargs):
+                return []
+
+            def equities_master(self, **kwargs):
+                return []
+
+        with unittest.mock.patch.object(sdd, "JQuantsClient", lambda *a, **k: EmptyClient()):
+            with redirect_stderr(io.StringIO()):
+                code = sdd.main(["--month", "2025-09", "--no-cache", "--max-rps", "0"])
+        self.assertEqual(code, 0)
+
+
 if __name__ == "__main__":
     unittest.main()

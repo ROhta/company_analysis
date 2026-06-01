@@ -157,6 +157,33 @@ class TestCachingClientFinsSummary(unittest.TestCase):
             cache_path = os.path.join(tmpdir, "summary", "2025-10-01.json")
             self.assertTrue(os.path.exists(cache_path))
 
+    def test_corrupt_cache_is_treated_as_miss(self):
+        """壊れたキャッシュは「無し」扱いで inner を呼び、正しい内容で上書きする。"""
+        import json
+        import os
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = os.path.join(tmpdir, "summary", "2025-10-01.json")
+            os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+            with open(cache_path, "w", encoding="utf-8") as f:
+                f.write("{壊れたJSON")  # 途中書き込み等を模した不正JSON
+            inner = FakeInner(summary_data=[{"Code": "X"}])
+            client = CachingClient(inner, tmpdir)
+            result = client.fins_summary(date="2025-10-01")
+            self.assertEqual(result, [{"Code": "X"}])     # ミス扱いで inner から取得
+            self.assertEqual(inner.fins_summary_count, 1)
+            with open(cache_path, encoding="utf-8") as f:
+                self.assertEqual(json.load(f), [{"Code": "X"}])  # 正しい内容で上書き
+
+    def test_write_leaves_no_temp_file(self):
+        """アトミック書き込み: 成功後に .tmp が残らない。"""
+        import os
+        with tempfile.TemporaryDirectory() as tmpdir:
+            inner = FakeInner(summary_data=[{"Code": "1"}])
+            client = CachingClient(inner, tmpdir)
+            client.fins_summary(date="2025-10-01")
+            files = os.listdir(os.path.join(tmpdir, "summary"))
+            self.assertEqual(files, ["2025-10-01.json"])
+
     def test_hit_does_not_call_inner(self):
         """キャッシュあり: 2回目は inner を呼ばずキャッシュから返す。"""
         with tempfile.TemporaryDirectory() as tmpdir:

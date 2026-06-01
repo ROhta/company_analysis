@@ -114,17 +114,30 @@ class CachingClient:
         self._cache_dir = cache_dir
 
     def _read_cache(self, path):
-        """キャッシュファイルが存在すれば読んで返す。なければ None。"""
-        if os.path.exists(path):
+        """キャッシュがあれば読んで返す。無い/壊れている場合は None（ベストエフォート）。
+
+        途中書き込み等で壊れたキャッシュは「無し」として扱い、再取得させる
+        （壊れたファイルで毎回の再実行が落ちるのを防ぐ）。
+        """
+        if not os.path.exists(path):
+            return None
+        try:
             with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
-        return None
+        except (json.JSONDecodeError, OSError):
+            return None
 
     def _write_cache(self, path, data):
-        """data を JSON でキャッシュファイルに保存する。ディレクトリは自動作成。"""
+        """data を JSON でアトミックに保存する（temp に書いて os.replace で差し替え）。
+
+        プロセス中断・ディスク枯渇等で部分的に書かれたファイルが
+        正規のキャッシュとして残らないようにする。
+        """
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
+        os.replace(tmp, path)
 
     def fins_summary(self, date=None, **kwargs):
         """date 指定時のみキャッシュ対象。未指定は inner に委譲。"""

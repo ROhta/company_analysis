@@ -1,6 +1,6 @@
 # 配当権利落ち下落スクリーニング 実装計画
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **エージェント作業者向け:** 必須サブスキル: superpowers:subagent-driven-development（推奨）または superpowers:executing-plans を使い、本計画をタスク単位で実装すること。各ステップは進捗管理のためチェックボックス（`- [ ]`）記法を用いる。
 
 **Goal:** J-Quants V2 のみを使い、配当を出すプライム/スタンダード銘柄の「権利落ち後10営業日以内に指定日終値の95%未満まで下落した銘柄」を end-to-end で抽出するPythonツールを作る。
 
