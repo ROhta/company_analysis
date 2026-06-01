@@ -218,6 +218,12 @@ def main(argv=None):
         hits = run(client, target_month, args.threshold, args.window, limit=args.limit)
     except JQuantsError as e:
         print("[error] {}".format(e), file=sys.stderr)
+        if "rate limit" in str(e).lower():
+            print(
+                "[hint] レート制限です。数分待って同じコマンドを再実行すれば、取得済み分は"
+                "キャッシュで即スキップして続きから再開します（上位プランなら --plan light 等で高速化）。",
+                file=sys.stderr,
+            )
         return 1
     except (urllib.error.URLError, TimeoutError) as e:
         print("[error] ネットワーク失敗(timeout等): {}。--plan/--max-rps を下げて再試行してください".format(e),

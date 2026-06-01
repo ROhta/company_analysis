@@ -415,5 +415,28 @@ class TestResolveMinInterval(unittest.TestCase):
         self.assertLess(mi_premium, mi_free)
 
 
+class TestRateLimitHint(unittest.TestCase):
+    """レート制限エラー時の再開ヒント表示を検証する。"""
+
+    def test_rate_limit_error_prints_resume_hint(self):
+        class RateLimitedClient:
+            def fins_summary(self, date=None, **kwargs):
+                raise JQuantsError("Rate limit exceeded. Please try again later.")
+
+            def equities_master(self, **kwargs):
+                return []
+
+        def factory(*args, **kwargs):
+            return RateLimitedClient()
+
+        err = io.StringIO()
+        with unittest.mock.patch.object(sdd, "JQuantsClient", factory):
+            with redirect_stderr(err):
+                result = sdd.main(["--month", "2025-09", "--no-cache"])
+        self.assertEqual(result, 1)
+        self.assertIn("[hint]", err.getvalue())
+        self.assertIn("再開", err.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()
