@@ -295,6 +295,29 @@ class TestRunEdgeCases(unittest.TestCase):
         with self.assertRaises(JQuantsError):
             sdd.run(client, "2025-09", threshold=0.95, window=10)
 
+    def test_out_of_coverage_scan_date_stops_gracefully(self):
+        """スキャン中に範囲外日付で 'subscription covers' エラーが出たら、
+        異常終了せず打ち切って取得済み分で続行する。"""
+        summary_by_date = _summary_by_date_sep2025()  # 2025-10-01 に 86970 の行
+        master = [{"Code": "86970", "CoName": "テスト社", "MktNm": "プライム"}]
+
+        class EdgeClient(FakeClient):
+            def fins_summary(self, date=None, **kwargs):
+                # 2025-10-02 以降はデータ提供範囲外としてエラーを送出
+                if date is not None and date >= "2025-10-02":
+                    raise JQuantsError(
+                        "Your subscription covers the following dates: "
+                        "2024-01-01 ~ 2025-10-01.")
+                return super().fins_summary(date=date, **kwargs)
+
+        client = EdgeClient(None, master, {}, summary_by_date=summary_by_date)
+        err = io.StringIO()
+        with redirect_stderr(err):
+            hits = sdd.run(client, "2025-09", threshold=0.95, window=10)
+        # ハードエラーで落ちず、打ち切り警告を出して続行（barsは空なので最終的にヒット0）
+        self.assertIn("データ提供範囲外", err.getvalue())
+        self.assertEqual(hits, [])
+
 
 class TestMainViaMonkeypatch(unittest.TestCase):
     """main() を FakeClient で monkeypatch して動作を検証する。"""

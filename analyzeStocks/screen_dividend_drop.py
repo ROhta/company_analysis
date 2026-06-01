@@ -48,7 +48,20 @@ def run(client, target_month, threshold, window, limit=None):
     summary_rows = []
     for i, d in enumerate(dates, 1):
         print("[info] 開示日スキャン {}/{}: {}".format(i, len(dates), d), file=sys.stderr)
-        rows = client.fins_summary(date=d)
+        try:
+            rows = client.fins_summary(date=d)
+        except JQuantsError as e:
+            # データ提供範囲の端に達した場合は異常終了せず、取得済み分で続行する。
+            # 開示日は昇順なので、これ以降の日付も範囲外＝打ち切ってよい。
+            if "subscription covers" in str(e):
+                print(
+                    "[warn] {} はデータ提供範囲外です。スキャンを打ち切り、取得済み分で続行します。"
+                    "（対象月 {} が新しすぎる可能性。範囲内の古い月、例 --month 2025-12 を試してください）".format(
+                        d, target_month),
+                    file=sys.stderr,
+                )
+                break
+            raise
         summary_rows.extend(rows)
 
     events = cl.filter_events_by_month(cl.dividend_events(summary_rows), target_month)
