@@ -33,6 +33,8 @@ python3 screen_dividend_drop.py --month 2025-09 --plan light
 | `--max-rps` | なし（--planから決定） | APIリクエストの最大レート（秒あたり）を直接指定。指定した場合は `--plan` より優先 |
 | `--no-cache` | なし（キャッシュ有効） | ディスクキャッシュ（`analyzeStocks/.jq_cache/`）を無効化する |
 | `--csv` | なし | 該当銘柄（コード/銘柄名/市場/指定日）をCSV出力（Excel向けにBOM付きUTF-8） |
+| `--retry` | なし | 一時エラー(exit 2: レート制限等)のとき自動で待って再試行し、完走するまで繰り返す（キャッシュで続きから） |
+| `--retry-wait` | `360` | `--retry` 時の再試行間隔（秒） |
 
 - 該当銘柄は標準出力へ、進捗・情報・エラーは標準エラー出力へ出る（`... | grep`等で該当行のみ扱える）。
 
@@ -46,18 +48,19 @@ python3 screen_dividend_drop.py --month 2025-09 --plan light
 
 ### 完走するまで自動再実行（Free向け）
 
-Freeはレート制限で途中停止しやすいので、付属の `run_until_done.sh` を使うと、終了コードを見て
-**自動で待って再実行（キャッシュで続きから）**し、成功(0)で終了・恒久エラー(1)で中止する。
+Freeはレート制限で途中停止しやすい。`--retry` を付けると、一時エラー(exit 2)のたびに
+`--retry-wait` 秒（既定360）待って自動再試行し、**キャッシュで続きから**進めて完走する。
+成功(0)で終了・恒久エラー(1: 範囲外の月など)で中止する（無限ループしない）。
 
 ```sh
 export JQUANTS_API_KEY=<発行したキー>
 cd analyzeStocks
-./run_until_done.sh --month 2025-12 --limit 10            # Free(既定)
-RETRY_SLEEP=300 ./run_until_done.sh --month 2025-09        # 再試行間隔を300秒に(既定360)
+python3 screen_dividend_drop.py --month 2025-12 --limit 10 --retry
+python3 screen_dividend_drop.py --month 2025-09 --retry --retry-wait 300
 ```
 
-引数はそのまま `screen_dividend_drop.py` に転送される。Freeでは数回の再試行に分かれて完走するため、
-放置運用（夜間など）に向く。`exit 2`（一時エラー）のときだけ待って再試行し、`exit 1`（恒久エラー）では止まる。
+Freeでは数回の再試行に分かれて完走するため放置運用（夜間など）に向く。
+セッションに依存させず確実に放置したい場合は `nohup python3 screen_dividend_drop.py --month 2025-12 --retry > run.log 2>&1 &` も可。
 
 ## 仕組み
 

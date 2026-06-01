@@ -5,6 +5,7 @@ import csv
 import datetime
 import os
 import sys
+import time
 import urllib.error
 
 import calendar_logic as cl
@@ -164,10 +165,48 @@ def resolve_min_interval(plan, max_rps):
     return 1.0 / rps if rps > 0 else 0.0
 
 
-def main(argv=None):
+def _run_once(args, target_month, min_interval):
+    """1回分のスクリーニングを実行し終了コードを返す（再試行はしない）。"""
+    api_key = os.environ.get("JQUANTS_API_KEY", "")
+    try:
+        client = JQuantsClient(api_key=api_key, min_interval=min_interval)
+        if not args.no_cache:
+            client = CachingClient(client, _DEFAULT_CACHE_DIR)
+        hits = run(client, target_month, args.threshold, args.window, limit=args.limit)
+    except JQuantsError as e:
+        print("[error] {}".format(e), file=sys.stderr)
+        if "rate limit" in str(e).lower():
+            print(
+                "[hint] レート制限です。--retry を付けるか、数分待って同じコマンドを再実行すれば、"
+                "取得済み分はキャッシュで即スキップして続きから再開します（上位プランなら --plan light 等で高速化）。",
+                file=sys.stderr,
+            )
+            return EXIT_RETRYABLE
+        return EXIT_ERROR
+    except (urllib.error.URLError, TimeoutError) as e:
+        print("[error] ネットワーク失敗(timeout等): {}。時間をおいて再実行してください".format(e),
+              file=sys.stderr)
+        return EXIT_RETRYABLE
+    except (ValueError, KeyError) as e:
+        print("[error] APIレスポンスの形式が想定外です: {}".format(e), file=sys.stderr)
+        return EXIT_ERROR
+
+    if args.csv:
+        try:
+            write_csv(args.csv, hits)
+        except OSError as e:
+            print("[error] CSV出力失敗: {}".format(e), file=sys.stderr)
+            return EXIT_ERROR
+        print("[info] 該当銘柄を {} に出力しました".format(args.csv), file=sys.stderr)
+    return EXIT_OK
+
+
+def main(argv=None, sleep=time.sleep):
     """CLIエントリポイント。
 
     終了コード: 0=成功 / 1=恒久エラー(再試行不可) / 2=一時エラー(レート制限・ネットワーク, 再試行可)。
+    --retry 指定時は exit 2 のとき --retry-wait 秒待って自動再試行し(キャッシュで続きから)、
+    成功(0)で終了・恒久エラー(1)で中止する。
     """
     parser = argparse.ArgumentParser(description="配当権利落ち後の下落銘柄スクリーニング")
     parser.add_argument("--month", help="対象の権利確定月 YYYY-MM(未指定なら約4ヶ月前)")
@@ -196,14 +235,26 @@ def main(argv=None):
         action="store_true",
         help="ディスクキャッシュを無効化する",
     )
+    parser.add_argument(
+        "--retry",
+        action="store_true",
+        help="一時エラー(レート制限等/exit 2)のとき自動で待って再試行し、完走するまで繰り返す",
+    )
+    parser.add_argument(
+        "--retry-wait",
+        type=float,
+        default=360.0,
+        help="--retry 時の再試行間隔(秒)。既定360",
+    )
     args = parser.parse_args(argv)
 
     if args.window < 1:
         parser.error("--window は1以上を指定してください")
     if not (0 < args.threshold <= 1):
         parser.error("--threshold は 0 より大きく 1 以下の値を指定してください")
+    if args.retry_wait < 0:
+        parser.error("--retry-wait は0以上を指定してください")
 
-    api_key = os.environ.get("JQUANTS_API_KEY", "")
     target_month = args.month or cl.default_target_month(datetime.date.today())
     if not args.month:
         print("[info] --month未指定のため既定 {} を使用(範囲外なら--monthで指定)".format(target_month),
@@ -216,41 +267,28 @@ def main(argv=None):
     else:
         print("[info] プラン: {} / レート: {:.3f} req/sec (min_interval={:.3f}s)".format(
             args.plan, _PLAN_RPS[args.plan], min_interval), file=sys.stderr)
+    if args.no_cache:
+        print("[info] キャッシュ無効", file=sys.stderr)
+    else:
+        print("[info] キャッシュ有効: {}".format(_DEFAULT_CACHE_DIR), file=sys.stderr)
 
-    try:
-        client = JQuantsClient(api_key=api_key, min_interval=min_interval)
-        if not args.no_cache:
-            client = CachingClient(client, _DEFAULT_CACHE_DIR)
-            print("[info] キャッシュ有効: {}".format(_DEFAULT_CACHE_DIR), file=sys.stderr)
-        else:
-            print("[info] キャッシュ無効", file=sys.stderr)
-        hits = run(client, target_month, args.threshold, args.window, limit=args.limit)
-    except JQuantsError as e:
-        print("[error] {}".format(e), file=sys.stderr)
-        if "rate limit" in str(e).lower():
-            print(
-                "[hint] レート制限です。数分待って同じコマンドを再実行すれば、取得済み分は"
-                "キャッシュで即スキップして続きから再開します（上位プランなら --plan light 等で高速化）。",
-                file=sys.stderr,
-            )
-            return EXIT_RETRYABLE
-        return EXIT_ERROR
-    except (urllib.error.URLError, TimeoutError) as e:
-        print("[error] ネットワーク失敗(timeout等): {}。時間をおいて再実行してください".format(e),
-              file=sys.stderr)
-        return EXIT_RETRYABLE
-    except (ValueError, KeyError) as e:
-        print("[error] APIレスポンスの形式が想定外です: {}".format(e), file=sys.stderr)
-        return EXIT_ERROR
-
-    if args.csv:
-        try:
-            write_csv(args.csv, hits)
-        except OSError as e:
-            print("[error] CSV出力失敗: {}".format(e), file=sys.stderr)
+    attempt = 0
+    while True:
+        attempt += 1
+        if args.retry:
+            print("[loop] 試行 {} 回目...".format(attempt), file=sys.stderr)
+        code = _run_once(args, target_month, min_interval)
+        if not args.retry:
+            return code
+        if code == EXIT_OK:
+            print("[loop] 完了しました（試行 {} 回）。".format(attempt), file=sys.stderr)
+            return EXIT_OK
+        if code == EXIT_ERROR:
+            print("[loop] 恒久エラー(exit 1)。中止します。", file=sys.stderr)
             return EXIT_ERROR
-        print("[info] 該当銘柄を {} に出力しました".format(args.csv), file=sys.stderr)
-    return EXIT_OK
+        print("[loop] 一時エラー(exit 2)。{:.0f}秒待って再試行します（取得済みはキャッシュで続きから）。".format(
+            args.retry_wait), file=sys.stderr)
+        sleep(args.retry_wait)
 
 
 if __name__ == "__main__":

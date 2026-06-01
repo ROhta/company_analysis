@@ -457,5 +457,63 @@ class TestRateLimitHint(unittest.TestCase):
         self.assertEqual(result, 2)
 
 
+class TestRetryLoop(unittest.TestCase):
+    """--retry の自動再試行ループを検証する（sleep を注入し実待機しない）。"""
+
+    def test_retry_loops_until_success(self):
+        """exit 2 のとき待って再試行し、成功(0)で終了する。"""
+        state = {"n": 0}
+
+        class FlakyClient:
+            """1回目はレート制限、2回目以降は成功(開示なし)。"""
+            def __init__(self):
+                state["n"] += 1
+                self._attempt = state["n"]
+
+            def fins_summary(self, date=None, **kwargs):
+                if self._attempt == 1:
+                    raise JQuantsError("Rate limit exceeded. Please try again later.")
+                return []  # 2回目: events 0 → 成功
+
+            def equities_master(self, **kwargs):
+                return []
+
+        def factory(*args, **kwargs):
+            return FlakyClient()
+
+        sleeps = []
+        with unittest.mock.patch.object(sdd, "JQuantsClient", factory):
+            with redirect_stderr(io.StringIO()):
+                code = sdd.main(
+                    ["--month", "2025-09", "--no-cache", "--retry", "--retry-wait", "1"],
+                    sleep=sleeps.append,
+                )
+        self.assertEqual(code, 0)
+        self.assertEqual(state["n"], 2)   # 2回目の試行で成功
+        self.assertEqual(sleeps, [1])     # 一時エラーで1回だけ待った
+
+    def test_retry_stops_on_permanent_error(self):
+        """恒久エラー(exit 1)では再試行せず即停止する。"""
+        class PermErrClient:
+            def fins_summary(self, date=None, **kwargs):
+                raise JQuantsError("その他の恒久エラー")
+
+            def equities_master(self, **kwargs):
+                return []
+
+        def factory(*args, **kwargs):
+            return PermErrClient()
+
+        sleeps = []
+        with unittest.mock.patch.object(sdd, "JQuantsClient", factory):
+            with redirect_stderr(io.StringIO()):
+                code = sdd.main(
+                    ["--month", "2025-09", "--no-cache", "--retry"],
+                    sleep=sleeps.append,
+                )
+        self.assertEqual(code, 1)
+        self.assertEqual(sleeps, [])      # 待たずに即停止
+
+
 if __name__ == "__main__":
     unittest.main()
