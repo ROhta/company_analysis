@@ -1,0 +1,314 @@
+# analyzeStocks/screen_dividend_drop.py
+"""配当権利落ち後の下落銘柄スクリーニング(J-Quants V2完結, 標準ライブラリのみ)。"""
+import argparse
+import csv
+import datetime
+import os
+import sys
+import time
+import urllib.error
+
+import calendar_logic as cl
+from jquants_client import CachingClient, JQuantsClient, JQuantsError
+
+# スクリプトのあるディレクトリ基準のキャッシュディレクトリ（固定）
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_DEFAULT_CACHE_DIR = os.path.join(_SCRIPT_DIR, ".jq_cache")
+
+# プラン別の安全な既定レート（各プラン上限の約9割）
+# Free=5/分, Light=60/分, Standard=120/分, Premium=500/分 に対応
+_PLAN_RPS = {
+    "free": 0.08,
+    "light": 0.9,
+    "standard": 1.8,
+    "premium": 8.0,
+}
+
+TARGET_MARKETS = ("プライム", "スタンダード")
+BARS_PAD_DAYS = 20  # 指定日算出のため基準日前後に確保する暦日
+
+# main() の終了コード
+EXIT_OK = 0          # 成功
+EXIT_ERROR = 1       # 恒久的エラー（対象月が範囲外・空ユニバース・形式異常など。再試行しても直らない）
+EXIT_RETRYABLE = 2   # 一時的エラー（レート制限・ネットワーク。時間をおいて再試行すれば回復しうる）
+
+
+def build_market_index(master_rows):
+    """master行から {code: (CoName, MktNm)} を作る。プライム/スタンダードのみ。"""
+    index = {}
+    for row in master_rows:
+        code = row.get("Code")
+        if code and row.get("MktNm") in TARGET_MARKETS:
+            index[code] = (row.get("CoName", ""), row.get("MktNm", ""))
+    return index
+
+
+def run(client, target_month, threshold, window, limit=None):
+    """スクリーニング本体。該当銘柄の dict リストを返す。
+
+    ヒット銘柄はstdout、進捗・サマリ・警告はstderrに出力する。
+    limit: 候補イベントを先頭 N 件に制限する（None=全件）。大規模月での試験実行用。
+    """
+    # 開示日を1日ずつスキャンして決算サマリ行を蓄積する
+    dates = cl.disclosure_dates(target_month)
+    summary_rows = []
+    for i, d in enumerate(dates, 1):
+        print("[info] 開示日スキャン {}/{}: {}".format(i, len(dates), d), file=sys.stderr)
+        try:
+            rows = client.fins_summary(date=d)
+        except JQuantsError as e:
+            # データ提供範囲の端に達した場合は異常終了せず、取得済み分で続行する。
+            # 開示日は昇順なので、これ以降の日付も範囲外＝打ち切ってよい。
+            if "subscription covers" in str(e):
+                print(
+                    "[warn] {} はデータ提供範囲外です。スキャンを打ち切り、取得済み分で続行します。"
+                    "（対象月 {} が新しすぎる可能性。範囲内の古い月、例 --month 2025-12 を試してください）".format(
+                        d, target_month),
+                    file=sys.stderr,
+                )
+                break
+            raise
+        summary_rows.extend(rows)
+
+    events = cl.filter_events_by_month(cl.dividend_events(summary_rows), target_month)
+
+    if not events:
+        print("[info] {} に該当する配当イベントが見つかりませんでした。".format(target_month),
+              file=sys.stderr)
+        _print_results([], target_month, threshold)
+        return []
+
+    # limit で候補数を制限
+    if limit is not None:
+        events = events[:limit]
+
+    # 候補が多数の月では全件1コールの方が per-code ループより安価なため意図的に全件取得
+    market_index = build_market_index(client.equities_master())
+    if not market_index:
+        raise JQuantsError("市場マスタ(equities/master)が空です。プラン/契約でユニバースが取得できているか確認してください。")
+
+    total = len(events)
+    hits = []
+    for i, ev in enumerate(events, 1):
+        print("[info] 候補 {}/{}: {} 権利確定{}".format(
+            i, total, ev.code, ev.record_date), file=sys.stderr)
+        if ev.code not in market_index:
+            continue
+        record = ev.record_date
+        bars = client.bars_daily(
+            ev.code,
+            from_=(record - datetime.timedelta(days=BARS_PAD_DAYS)).strftime("%Y%m%d"),
+            to=(record + datetime.timedelta(days=BARS_PAD_DAYS + window * 2)).strftime("%Y%m%d"),
+        )
+        if not bars:
+            print("[warn] {} 株価barsが空。スキップ".format(ev.code), file=sys.stderr)
+            continue
+        trading_days = [cl.parse_date(b["Date"]) for b in bars]
+        kijitsu = cl.settlement_date(record, trading_days)
+        if kijitsu is None:
+            print("[warn] {} 基準日{}前の取引日が不足。スキップ".format(ev.code, record), file=sys.stderr)
+            continue
+        result = cl.analyze_drop(bars, kijitsu, window=window, threshold=threshold)
+        if result is None:
+            print("[warn] {} 指定日の終値取得不可。スキップ".format(ev.code), file=sys.stderr)
+            continue
+        if result.window_used < window:
+            print(
+                "[warn] {} 指定日以降の営業日が {} 日のみ(window={})。"
+                "データ範囲端の可能性".format(ev.code, result.window_used, window),
+                file=sys.stderr,
+            )
+        if not result.hit:
+            continue
+        name, market = market_index[ev.code]
+        hits.append({
+            "code": ev.code,
+            "name": name,
+            "market": market,
+            "kijitsu": kijitsu.isoformat(),
+            "ref_close": result.ref_close,
+            "min_close": result.min_close,
+            "min_date": result.min_date.isoformat(),
+            "drop_pct": round((1 - result.ratio) * 100, 2),
+        })
+
+    _print_results(hits, target_month, threshold)
+    return hits
+
+
+def _print_results(hits, target_month, threshold):
+    print("=== {} 権利確定・指定日終値の{:.0f}%未満まで下落した銘柄 ===".format(
+        target_month, threshold * 100), file=sys.stderr)
+    if not hits:
+        print("該当銘柄はありませんでした。", file=sys.stderr)
+        return
+    for h in hits:
+        print("{code} {name} ({market}) 指定日{kijitsu} 終値{ref_close}→最安{min_close}"
+              "({min_date}) 下落{drop_pct}%".format(**h))
+
+
+def write_csv(path, hits):
+    with open(path, "w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.writer(f)
+        writer.writerow(["コード", "銘柄名", "市場", "指定日"])
+        for h in hits:
+            writer.writerow([h["code"], h["name"], h["market"], h["kijitsu"]])
+
+
+def resolve_min_interval(plan, max_rps):
+    """プランと明示的 max_rps から min_interval（秒）を決定する純粋関数。
+
+    max_rps が None でなければそちらを優先。None なら plan のレートを使う。
+    rps が 0 以下のときは min_interval = 0.0（ペーシングなし）。
+    """
+    rps = max_rps if max_rps is not None else _PLAN_RPS.get(plan, _PLAN_RPS["free"])
+    return 1.0 / rps if rps > 0 else 0.0
+
+
+def _run_once(args, target_month, min_interval):
+    """1回分のスクリーニングを実行し終了コードを返す（再試行はしない）。"""
+    api_key = os.environ.get("JQUANTS_API_KEY", "")
+    try:
+        client = JQuantsClient(api_key=api_key, min_interval=min_interval)
+        if not args.no_cache:
+            client = CachingClient(client, _DEFAULT_CACHE_DIR)
+        hits = run(client, target_month, args.threshold, args.window, limit=args.limit)
+    except JQuantsError as e:
+        print("[error] {}".format(e), file=sys.stderr)
+        if "rate limit" in str(e).lower():
+            if args.no_cache:
+                print(
+                    "[hint] レート制限です。--no-cache のため再実行は最初からになります。"
+                    "キャッシュを有効化（--no-cache を外す）して --retry すると続きから再開できます"
+                    "（上位プランなら --plan light 等で高速化）。",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    "[hint] レート制限です。--retry を付けるか、数分待って同じコマンドを再実行すれば、"
+                    "取得済み分はキャッシュで即スキップして続きから再開します（上位プランなら --plan light 等で高速化）。",
+                    file=sys.stderr,
+                )
+            return EXIT_RETRYABLE
+        return EXIT_ERROR
+    except (urllib.error.URLError, TimeoutError) as e:
+        print("[error] ネットワーク失敗(timeout等): {}。時間をおいて再実行してください".format(e),
+              file=sys.stderr)
+        return EXIT_RETRYABLE
+    except (ValueError, KeyError) as e:
+        print("[error] APIレスポンスの形式が想定外です: {}".format(e), file=sys.stderr)
+        return EXIT_ERROR
+
+    if args.csv:
+        try:
+            write_csv(args.csv, hits)
+        except OSError as e:
+            print("[error] CSV出力失敗: {}".format(e), file=sys.stderr)
+            return EXIT_ERROR
+        print("[info] 該当銘柄を {} に出力しました".format(args.csv), file=sys.stderr)
+    return EXIT_OK
+
+
+def main(argv=None, sleep=time.sleep):
+    """CLIエントリポイント。
+
+    終了コード: 0=成功 / 1=恒久エラー(再試行不可) / 2=一時エラー(レート制限・ネットワーク, 再試行可)。
+    --retry 指定時は exit 2 のとき --retry-wait 秒待って自動再試行し(キャッシュで続きから)、
+    成功(0)で終了・恒久エラー(1)で中止する。
+    """
+    parser = argparse.ArgumentParser(description="配当権利落ち後の下落銘柄スクリーニング")
+    parser.add_argument("--month", help="対象の権利確定月 YYYY-MM(未指定なら約4ヶ月前)")
+    parser.add_argument("--threshold", type=float, default=0.95)
+    parser.add_argument("--window", type=int, default=10)
+    parser.add_argument("--csv", help="該当銘柄をCSV出力（コード/銘柄名/市場/指定日）")
+    parser.add_argument("--limit", type=int, default=None,
+                        help="候補barsの処理数を制限（開示日スキャンのコール数は減らない）")
+    parser.add_argument(
+        "--plan",
+        choices=["free", "light", "standard", "premium"],
+        default="free",
+        help=("契約プラン（既定: free）。Freeは既定で十分遅いペース。"
+              "Light以上は --plan light 等を指定。"
+              "プラン別レート: free=0.08, light=0.9, standard=1.8, premium=8.0 req/sec"),
+    )
+    parser.add_argument(
+        "--max-rps",
+        type=float,
+        default=None,
+        help=("APIリクエストの最大レート(req/sec)。指定した場合 --plan より優先。"
+              "未指定なら --plan から決定"),
+    )
+    parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="ディスクキャッシュを無効化する",
+    )
+    parser.add_argument(
+        "--retry",
+        action="store_true",
+        help="一時エラー(レート制限等/exit 2)のとき自動で待って再試行し、完走するまで繰り返す",
+    )
+    parser.add_argument(
+        "--retry-wait",
+        type=float,
+        default=360.0,
+        help="--retry 時の再試行間隔(秒)。既定360",
+    )
+    args = parser.parse_args(argv)
+
+    if args.window < 1:
+        parser.error("--window は1以上を指定してください")
+    if not (0 < args.threshold <= 1):
+        parser.error("--threshold は 0 より大きく 1 以下の値を指定してください")
+    if args.retry_wait < 0:
+        parser.error("--retry-wait は0以上を指定してください")
+    if args.limit is not None and args.limit < 1:
+        parser.error("--limit は1以上を指定してください")
+    if args.max_rps is not None and args.max_rps < 0:
+        parser.error("--max-rps は0以上を指定してください（0はスロットル無効）")
+    if args.month is not None:
+        parts = args.month.split("-")
+        if not (len(parts) == 2
+                and len(parts[0]) == 4 and parts[0].isdigit()
+                and len(parts[1]) == 2 and parts[1].isdigit()
+                and 1 <= int(parts[1]) <= 12):
+            parser.error("--month は YYYY-MM 形式（月は01〜12）で指定してください")
+
+    target_month = args.month or cl.default_target_month(datetime.date.today())
+    if not args.month:
+        print("[info] --month未指定のため既定 {} を使用(範囲外なら--monthで指定)".format(target_month),
+              file=sys.stderr)
+
+    min_interval = resolve_min_interval(args.plan, args.max_rps)
+    if args.max_rps is not None:
+        print("[info] レート: --max-rps {:.3f} req/sec (min_interval={:.3f}s)".format(
+            args.max_rps, min_interval), file=sys.stderr)
+    else:
+        print("[info] プラン: {} / レート: {:.3f} req/sec (min_interval={:.3f}s)".format(
+            args.plan, _PLAN_RPS[args.plan], min_interval), file=sys.stderr)
+    if args.no_cache:
+        print("[info] キャッシュ無効", file=sys.stderr)
+    else:
+        print("[info] キャッシュ有効: {}".format(_DEFAULT_CACHE_DIR), file=sys.stderr)
+
+    attempt = 0
+    while True:
+        attempt += 1
+        if args.retry:
+            print("[loop] 試行 {} 回目...".format(attempt), file=sys.stderr)
+        code = _run_once(args, target_month, min_interval)
+        if not args.retry:
+            return code
+        if code == EXIT_OK:
+            print("[loop] 完了しました（試行 {} 回）。".format(attempt), file=sys.stderr)
+            return EXIT_OK
+        if code == EXIT_ERROR:
+            print("[loop] 恒久エラー(exit 1)。中止します。", file=sys.stderr)
+            return EXIT_ERROR
+        print("[loop] 一時エラー(exit 2)。{:.0f}秒待って再試行します（取得済みはキャッシュで続きから）。".format(
+            args.retry_wait), file=sys.stderr)
+        sleep(args.retry_wait)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

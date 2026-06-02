@@ -1,0 +1,563 @@
+# analyzeStocks/test_screen_dividend_drop.py
+import csv
+import io
+import os
+import sys
+import tempfile
+import unittest
+import unittest.mock
+from contextlib import redirect_stdout, redirect_stderr
+
+import screen_dividend_drop as sdd
+from jquants_client import JQuantsError
+
+
+class FakeClient:
+    """summary/master/bars を辞書から返すfakeクライアント。
+
+    fins_summary(date=d) で呼ばれる。
+    _summary_by_date が設定されている場合はその日付のデータを返し、
+    _summary_by_date が未設定の場合は _summary を全日付で返す。
+    """
+    def __init__(self, summary, master, bars, summary_by_date=None):
+        self._summary = summary
+        self._master = master
+        self._bars = bars  # {code: [rows]}
+        self._summary_by_date = summary_by_date  # {"YYYY-MM-DD": [rows]} or None
+        self.fins_summary_calls = []  # 呼び出し記録
+        self.bars_daily_count = 0  # bars_daily 呼び出し回数
+
+    def fins_summary(self, date=None, from_=None, to=None, code=None):
+        self.fins_summary_calls.append({"date": date, "from_": from_, "to": to, "code": code})
+        if self._summary_by_date is not None:
+            if date is None:
+                return []
+            return self._summary_by_date.get(date, [])
+        return self._summary
+
+    def equities_master(self, code=None):
+        return self._master
+
+    def bars_daily(self, code, date=None, from_=None, to=None):
+        self.bars_daily_count += 1
+        return self._bars.get(code, [])
+
+
+def _summary_by_date_sep2025():
+    """2025-09-30 を CurPerEn とする 2Q 行を、開示日 2025-10-01 にマッピングした summary_by_date。"""
+    return {"2025-10-01": [{
+        "Code": "86970", "DocType": "2QFinancialStatements_Consolidated_IFRS",
+        "CurPerType": "2Q", "CurPerEn": "2025-09-30", "DivFY": "", "Div2Q": "25.0",
+    }]}
+
+
+class TestBuildMarketIndex(unittest.TestCase):
+    def test_keeps_prime_and_standard_only(self):
+        master = [
+            {"Code": "1", "CoName": "A社", "MktNm": "プライム"},
+            {"Code": "2", "CoName": "B社", "MktNm": "スタンダード"},
+            {"Code": "3", "CoName": "C社", "MktNm": "グロース"},
+        ]
+        idx = sdd.build_market_index(master)
+        self.assertEqual(set(idx.keys()), {"1", "2"})
+        self.assertEqual(idx["1"], ("A社", "プライム"))
+
+
+class TestMainSmoke(unittest.TestCase):
+    def test_fins_summary_called_with_date_param(self):
+        """run() が fins_summary(date=...) を使って呼ぶことを確認。"""
+        summary_by_date = _summary_by_date_sep2025()
+        master = [{"Code": "86970", "CoName": "テスト社", "MktNm": "プライム"}]
+        bars = {"86970": [
+            {"Date": "2025-09-24", "C": 1700.0},
+            {"Date": "2025-09-25", "C": 1690.0},
+            {"Date": "2025-09-26", "C": 1636.0},
+            {"Date": "2025-09-29", "C": 1610.0},
+            {"Date": "2025-09-30", "C": 1520.0},
+            {"Date": "2025-10-01", "C": 1490.0},
+        ]}
+        client = FakeClient(None, master, bars, summary_by_date=summary_by_date)
+        sdd.run(client, "2025-09", threshold=0.95, window=10)
+        # date= パラメータで呼ばれていること
+        date_calls = [c["date"] for c in client.fins_summary_calls if c["date"] is not None]
+        self.assertGreater(len(date_calls), 0, "fins_summary が date= で呼ばれていない")
+        # from_= では呼ばれていないこと
+        from_calls = [c for c in client.fins_summary_calls if c["from_"] is not None]
+        self.assertEqual(from_calls, [], "fins_summary が from_= で呼ばれている（バグ）")
+
+    def test_finds_dropping_stock(self):
+        # 2025-09(中間)に権利確定、指定日9/26(1636)→以降1490まで下落する銘柄
+        summary_by_date = _summary_by_date_sep2025()
+        master = [{"Code": "86970", "CoName": "テスト社", "MktNm": "プライム"}]
+        bars = {"86970": [
+            {"Date": "2025-09-24", "C": 1700.0},
+            {"Date": "2025-09-25", "C": 1690.0},
+            {"Date": "2025-09-26", "C": 1636.0},  # 指定日(基準日9/30の2営業日前)
+            {"Date": "2025-09-29", "C": 1610.0},
+            {"Date": "2025-09-30", "C": 1520.0},
+            {"Date": "2025-10-01", "C": 1490.0},
+        ]}
+        client = FakeClient(None, master, bars, summary_by_date=summary_by_date)
+        out = io.StringIO()
+        with redirect_stdout(out):
+            hits = sdd.run(client, target_month="2025-09", threshold=0.95, window=10)
+        self.assertEqual([h["code"] for h in hits], ["86970"])
+        self.assertIn("テスト社", out.getvalue())
+
+    def test_no_hit_when_no_drop(self):
+        summary_by_date = _summary_by_date_sep2025()
+        master = [{"Code": "86970", "CoName": "テスト社", "MktNm": "プライム"}]
+        bars = {"86970": [
+            {"Date": "2025-09-24", "C": 1700.0},
+            {"Date": "2025-09-25", "C": 1690.0},
+            {"Date": "2025-09-26", "C": 1636.0},  # 指定日
+            {"Date": "2025-09-29", "C": 1600.0},  # 1636*0.95=1554.2 を下回らない
+        ]}
+        client = FakeClient(None, master, bars, summary_by_date=summary_by_date)
+        self.assertEqual(sdd.run(client, "2025-09", threshold=0.95, window=10), [])
+
+    def test_no_events_skips_equities_master(self):
+        """events が0件のとき equities_master を呼ばない。"""
+        client = FakeClient([], [], {}, summary_by_date={})
+        hits = sdd.run(client, "2025-09", threshold=0.95, window=10)
+        self.assertEqual(hits, [])
+        # equities_master が呼ばれると AttributeError になるが、呼ばれなければ問題なし
+
+    def test_limit_caps_candidates(self):
+        """--limit N で候補イベントが N 件に絞られる。"""
+        # 2銘柄が権利確定するが limit=1 にすると1件しか処理しない
+        row1 = {"Code": "10001", "DocType": "2QFinancialStatements_Consolidated_IFRS",
+                "CurPerType": "2Q", "CurPerEn": "2025-09-30", "DivFY": "", "Div2Q": "10.0"}
+        row2 = {"Code": "10002", "DocType": "2QFinancialStatements_Consolidated_IFRS",
+                "CurPerType": "2Q", "CurPerEn": "2025-09-30", "DivFY": "", "Div2Q": "10.0"}
+        summary_by_date = {"2025-10-01": [row1, row2]}
+        master = [
+            {"Code": "10001", "CoName": "A社", "MktNm": "プライム"},
+            {"Code": "10002", "CoName": "B社", "MktNm": "プライム"},
+        ]
+        # settlement_date が非 None になるよう 9/30 基準日の2営業日前=9/26 を含む bars を設定
+        # どちらも下落しない（ヒットなし）ようにバーを設定
+        flat_bars = [
+            {"Date": "2025-09-24", "C": 1000.0},
+            {"Date": "2025-09-25", "C": 1000.0},
+            {"Date": "2025-09-26", "C": 1000.0},
+            {"Date": "2025-09-29", "C": 990.0},
+        ]
+        bars = {"10001": flat_bars, "10002": flat_bars}
+        # limit=1: 候補が2件あっても bars_daily は高々1回しか呼ばれない
+        client1 = FakeClient(None, master, bars, summary_by_date=summary_by_date)
+        sdd.run(client1, "2025-09", threshold=0.95, window=10, limit=1)
+        # limit=None: 2件処理（bars_daily が2回呼ばれる）
+        client2 = FakeClient(None, master, bars, summary_by_date=summary_by_date)
+        sdd.run(client2, "2025-09", threshold=0.95, window=10, limit=None)
+        # limit=1 の方が bars_daily 呼び出し回数が少ない（候補件数が実際に制限されている）
+        self.assertLess(client1.bars_daily_count, client2.bars_daily_count,
+                        "limit=1 のとき bars_daily 呼び出しが limit=None より少ないはず")
+
+    def test_window_short_warn_on_stderr(self):
+        """指定日以降の取引日が window 未満のとき [warn] が stderr に出る。"""
+        summary_by_date = _summary_by_date_sep2025()
+        master = [{"Code": "86970", "CoName": "テスト社", "MktNm": "プライム"}]
+        # 指定日(9/26)以降が1日のみ → window_used=1 < window=10 → warn が出るはず
+        bars = {"86970": [
+            {"Date": "2025-09-24", "C": 1700.0},
+            {"Date": "2025-09-25", "C": 1690.0},
+            {"Date": "2025-09-26", "C": 1636.0},  # 指定日
+            {"Date": "2025-09-29", "C": 1400.0},  # 1日のみ・下落あり
+        ]}
+        client = FakeClient(None, master, bars, summary_by_date=summary_by_date)
+        err = io.StringIO()
+        with redirect_stderr(err):
+            sdd.run(client, "2025-09", threshold=0.95, window=10)
+        self.assertIn("[warn]", err.getvalue())
+        self.assertIn("86970", err.getvalue())
+
+    def test_run_raises_jquants_error_to_caller(self):
+        """run() はAPIエラー(JQuantsError)を握りつぶさず呼び出し元へ送出する（main側で捕捉し終了コード化）。"""
+        class ErrorClient:
+            def fins_summary(self, date=None, **kwargs):
+                raise JQuantsError("範囲外")
+
+            def equities_master(self, **kwargs):
+                return []
+
+        with self.assertRaises(JQuantsError):
+            sdd.run(ErrorClient(), "2026-06", threshold=0.95, window=10)
+
+
+class TestWriteCsv(unittest.TestCase):
+    """write_csv のCSV出力内容を検証する。"""
+
+    def _sample_hits(self):
+        return [{"code": "86970", "name": "テスト社", "market": "プライム", "kijitsu": "2025-09-26"}]
+
+    def test_bom_present(self):
+        """出力ファイルが BOM（UTF-8 BOM = 0xEF 0xBB 0xBF）で始まる。"""
+        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
+            path = tmp.name
+        try:
+            sdd.write_csv(path, self._sample_hits())
+            with open(path, "rb") as f:
+                raw = f.read()
+            self.assertTrue(raw.startswith(b"\xef\xbb\xbf"), "BOM が見つかりません")
+        finally:
+            os.unlink(path)
+
+    def test_header_row(self):
+        """先頭行が コード,銘柄名,市場,指定日 である。"""
+        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
+            path = tmp.name
+        try:
+            sdd.write_csv(path, self._sample_hits())
+            with open(path, newline="", encoding="utf-8-sig") as f:
+                reader = csv.reader(f)
+                header = next(reader)
+            self.assertEqual(header, ["コード", "銘柄名", "市場", "指定日"])
+        finally:
+            os.unlink(path)
+
+    def test_data_row(self):
+        """hits 1件が正しい行として出力される。"""
+        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
+            path = tmp.name
+        try:
+            sdd.write_csv(path, self._sample_hits())
+            with open(path, newline="", encoding="utf-8-sig") as f:
+                reader = csv.reader(f)
+                next(reader)  # ヘッダ行をスキップ
+                row = next(reader)
+            self.assertEqual(row, ["86970", "テスト社", "プライム", "2025-09-26"])
+        finally:
+            os.unlink(path)
+
+
+class TestRunEdgeCases(unittest.TestCase):
+    """run() の未カバー経路をテストする。"""
+
+    def _make_bars_with_hit(self):
+        return {"86970": [
+            {"Date": "2025-09-24", "C": 1700.0},
+            {"Date": "2025-09-25", "C": 1690.0},
+            {"Date": "2025-09-26", "C": 1636.0},
+            {"Date": "2025-09-29", "C": 1490.0},
+        ]}
+
+    def test_growth_market_stock_excluded_from_hits(self):
+        """グロース銘柄はTARGET_MARKETSに含まれないため hits に出ない（市場外スキップ）。"""
+        # グロース銘柄86970を events に含めるが master からはグロースとして登録
+        summary_by_date = _summary_by_date_sep2025()
+        # プライムなし・グロースのみ → market_index が空になる → JQuantsError が発生する
+        # この経路は「空ユニバース」ではなく「市場外コード」なので、
+        # グロース銘柄と一緒にプライム銘柄を追加して market_index を空にしないようにする
+        growth_row = {
+            "Code": "99990", "DocType": "2QFinancialStatements_Consolidated_IFRS",
+            "CurPerType": "2Q", "CurPerEn": "2025-09-30", "DivFY": "", "Div2Q": "10.0",
+        }
+        summary_by_date_multi = {"2025-10-01": [_summary_by_date_sep2025()["2025-10-01"][0], growth_row]}
+        master = [
+            {"Code": "86970", "CoName": "テスト社", "MktNm": "プライム"},
+            {"Code": "99990", "CoName": "グロース社", "MktNm": "グロース"},
+        ]
+        bars = dict(self._make_bars_with_hit())
+        bars["99990"] = [{"Date": "2025-09-26", "C": 1000.0}, {"Date": "2025-09-29", "C": 100.0}]
+        client = FakeClient(None, master, bars, summary_by_date=summary_by_date_multi)
+        err = io.StringIO()
+        with redirect_stderr(err):
+            hits = sdd.run(client, "2025-09", threshold=0.95, window=10)
+        # グロース銘柄99990は hits に出ない
+        hit_codes = [h["code"] for h in hits]
+        self.assertNotIn("99990", hit_codes)
+
+    def test_bars_empty_skips_with_warn(self):
+        """bars が空リストのとき [warn] を stderr に出してスキップ、例外を発生させない。"""
+        summary_by_date = _summary_by_date_sep2025()
+        master = [{"Code": "86970", "CoName": "テスト社", "MktNm": "プライム"}]
+        bars = {"86970": []}  # 空リスト
+        client = FakeClient(None, master, bars, summary_by_date=summary_by_date)
+        err = io.StringIO()
+        with redirect_stderr(err):
+            hits = sdd.run(client, "2025-09", threshold=0.95, window=10)
+        self.assertEqual(hits, [])
+        self.assertIn("[warn]", err.getvalue())
+        self.assertIn("86970", err.getvalue())
+
+    def test_empty_universe_raises_jquants_error(self):
+        """events ありで market_index が空(master=[]) のとき JQuantsError を送出。"""
+        summary_by_date = _summary_by_date_sep2025()
+        master = []  # プライム/スタンダードなし → market_index 空
+        client = FakeClient(None, master, {}, summary_by_date=summary_by_date)
+        with self.assertRaises(JQuantsError):
+            sdd.run(client, "2025-09", threshold=0.95, window=10)
+
+    def test_out_of_coverage_scan_date_stops_gracefully(self):
+        """スキャン中に範囲外日付で 'subscription covers' エラーが出たら、
+        異常終了せず打ち切って取得済み分で続行する。"""
+        summary_by_date = _summary_by_date_sep2025()  # 2025-10-01 に 86970 の行
+        master = [{"Code": "86970", "CoName": "テスト社", "MktNm": "プライム"}]
+
+        class EdgeClient(FakeClient):
+            def fins_summary(self, date=None, **kwargs):
+                # 2025-10-02 以降はデータ提供範囲外としてエラーを送出
+                if date is not None and date >= "2025-10-02":
+                    raise JQuantsError(
+                        "Your subscription covers the following dates: "
+                        "2024-01-01 ~ 2025-10-01.")
+                return super().fins_summary(date=date, **kwargs)
+
+        client = EdgeClient(None, master, {}, summary_by_date=summary_by_date)
+        err = io.StringIO()
+        with redirect_stderr(err):
+            hits = sdd.run(client, "2025-09", threshold=0.95, window=10)
+        # ハードエラーで落ちず、打ち切り警告を出して続行（barsは空なので最終的にヒット0）
+        self.assertIn("データ提供範囲外", err.getvalue())
+        self.assertEqual(hits, [])
+
+
+class TestMainViaMonkeypatch(unittest.TestCase):
+    """main() を FakeClient で monkeypatch して動作を検証する。"""
+
+    def _make_factory(self, fake_client):
+        """JQuantsClient(api_key=..., min_interval=...) を受け付けて fake_client を返す factory を作る。"""
+        def factory(*args, **kwargs):
+            return fake_client
+        return factory
+
+    def _make_client_with_hit(self):
+        summary_by_date = _summary_by_date_sep2025()
+        master = [{"Code": "86970", "CoName": "テスト社", "MktNm": "プライム"}]
+        bars = {"86970": [
+            {"Date": "2025-09-24", "C": 1700.0},
+            {"Date": "2025-09-25", "C": 1690.0},
+            {"Date": "2025-09-26", "C": 1636.0},
+            {"Date": "2025-09-29", "C": 1610.0},
+            {"Date": "2025-09-30", "C": 1520.0},
+            {"Date": "2025-10-01", "C": 1490.0},
+        ]}
+        return FakeClient(None, master, bars, summary_by_date=summary_by_date)
+
+    def test_max_rps_zero_does_not_raise_zero_division(self):
+        """--max-rps 0 でも ZeroDivisionError にならず main が 0 を返す。"""
+        fake = self._make_client_with_hit()
+        with unittest.mock.patch.object(sdd, "JQuantsClient", self._make_factory(fake)):
+            result = sdd.main(["--month", "2025-09", "--max-rps", "0", "--no-cache"])
+        self.assertEqual(result, 0)
+
+    def test_csv_option_writes_file_and_returns_zero(self):
+        """--csv 指定で CSV が書かれ main が 0 を返す。"""
+        fake = self._make_client_with_hit()
+        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
+            path = tmp.name
+        try:
+            with unittest.mock.patch.object(sdd, "JQuantsClient", self._make_factory(fake)):
+                result = sdd.main(["--month", "2025-09", "--csv", path, "--no-cache"])
+            self.assertEqual(result, 0)
+            with open(path, newline="", encoding="utf-8-sig") as f:
+                reader = csv.reader(f)
+                header = next(reader)
+            self.assertEqual(header, ["コード", "銘柄名", "市場", "指定日"])
+        finally:
+            os.unlink(path)
+
+    def test_run_raises_jquants_error_main_returns_one(self):
+        """run() が JQuantsError を送出したとき main が 1 を返す。"""
+        class RaisingClient:
+            def fins_summary(self, date=None, **kwargs):
+                raise JQuantsError("テストエラー")
+            def equities_master(self, **kwargs):
+                return []
+
+        with unittest.mock.patch.object(sdd, "JQuantsClient", self._make_factory(RaisingClient())):
+            result = sdd.main(["--month", "2025-09", "--no-cache"])
+        self.assertEqual(result, 1)
+
+
+class TestResolveMinInterval(unittest.TestCase):
+    """resolve_min_interval() のレートマッピングを検証する。"""
+
+    def test_plan_free_default_rate(self):
+        """--plan free: 0.08 req/sec → min_interval ≈ 12.5s"""
+        mi = sdd.resolve_min_interval("free", None)
+        self.assertAlmostEqual(mi, 1.0 / 0.08, places=5)
+
+    def test_plan_light_rate(self):
+        mi = sdd.resolve_min_interval("light", None)
+        self.assertAlmostEqual(mi, 1.0 / 0.9, places=5)
+
+    def test_plan_standard_rate(self):
+        mi = sdd.resolve_min_interval("standard", None)
+        self.assertAlmostEqual(mi, 1.0 / 1.8, places=5)
+
+    def test_plan_premium_rate(self):
+        mi = sdd.resolve_min_interval("premium", None)
+        self.assertAlmostEqual(mi, 1.0 / 8.0, places=5)
+
+    def test_max_rps_overrides_plan(self):
+        """--max-rps 指定時は plan より優先される。"""
+        mi = sdd.resolve_min_interval("free", 2.0)
+        self.assertAlmostEqual(mi, 0.5, places=5)
+
+    def test_max_rps_zero_yields_zero_interval(self):
+        """--max-rps 0 は min_interval=0（ZeroDivisionError なし）。"""
+        mi = sdd.resolve_min_interval("free", 0.0)
+        self.assertEqual(mi, 0.0)
+
+    def test_plan_takes_effect_when_max_rps_is_none(self):
+        """max_rps=None のとき plan のレートが使われる。"""
+        mi_free = sdd.resolve_min_interval("free", None)
+        mi_premium = sdd.resolve_min_interval("premium", None)
+        # premium は free より速い（min_interval が小さい）
+        self.assertLess(mi_premium, mi_free)
+
+
+class TestRateLimitHint(unittest.TestCase):
+    """レート制限エラー時の再開ヒント表示を検証する。"""
+
+    def test_rate_limit_error_prints_resume_hint(self):
+        class RateLimitedClient:
+            def fins_summary(self, date=None, **kwargs):
+                raise JQuantsError("Rate limit exceeded. Please try again later.")
+
+            def equities_master(self, **kwargs):
+                return []
+
+        def factory(*args, **kwargs):
+            return RateLimitedClient()
+
+        err = io.StringIO()
+        with unittest.mock.patch.object(sdd, "JQuantsClient", factory):
+            with redirect_stderr(err):
+                result = sdd.main(["--month", "2025-09", "--no-cache"])
+        self.assertEqual(result, 2)  # レート制限=一時エラー(再試行可)
+        self.assertIn("[hint]", err.getvalue())
+        self.assertIn("再開", err.getvalue())
+
+    def test_network_error_returns_retryable_code(self):
+        """ネットワーク失敗(URLError)も一時エラー(exit 2)を返す。"""
+        import urllib.error
+
+        class NetClient:
+            def fins_summary(self, date=None, **kwargs):
+                raise urllib.error.URLError("timeout")
+
+            def equities_master(self, **kwargs):
+                return []
+
+        def factory(*args, **kwargs):
+            return NetClient()
+
+        with unittest.mock.patch.object(sdd, "JQuantsClient", factory):
+            with redirect_stderr(io.StringIO()):
+                result = sdd.main(["--month", "2025-09", "--no-cache"])
+        self.assertEqual(result, 2)
+
+    def test_rate_limit_hint_without_cache_says_from_start(self):
+        """--no-cache 時のヒントは「最初から」と出し分ける（キャッシュ続きからと断定しない）。"""
+        class RateLimitedClient:
+            def fins_summary(self, date=None, **kwargs):
+                raise JQuantsError("Rate limit exceeded. Please try again later.")
+
+            def equities_master(self, **kwargs):
+                return []
+
+        err = io.StringIO()
+        with unittest.mock.patch.object(
+                sdd, "JQuantsClient", lambda *a, **k: RateLimitedClient()):
+            with redirect_stderr(err):
+                result = sdd.main(["--month", "2025-09", "--no-cache"])
+        self.assertEqual(result, 2)
+        self.assertIn("最初から", err.getvalue())
+
+
+class TestRetryLoop(unittest.TestCase):
+    """--retry の自動再試行ループを検証する（sleep を注入し実待機しない）。"""
+
+    def test_retry_loops_until_success(self):
+        """exit 2 のとき待って再試行し、成功(0)で終了する。"""
+        state = {"n": 0}
+
+        class FlakyClient:
+            """1回目はレート制限、2回目以降は成功(開示なし)。"""
+            def __init__(self):
+                state["n"] += 1
+                self._attempt = state["n"]
+
+            def fins_summary(self, date=None, **kwargs):
+                if self._attempt == 1:
+                    raise JQuantsError("Rate limit exceeded. Please try again later.")
+                return []  # 2回目: events 0 → 成功
+
+            def equities_master(self, **kwargs):
+                return []
+
+        def factory(*args, **kwargs):
+            return FlakyClient()
+
+        sleeps = []
+        with unittest.mock.patch.object(sdd, "JQuantsClient", factory):
+            with redirect_stderr(io.StringIO()):
+                code = sdd.main(
+                    ["--month", "2025-09", "--no-cache", "--retry", "--retry-wait", "1"],
+                    sleep=sleeps.append,
+                )
+        self.assertEqual(code, 0)
+        self.assertEqual(state["n"], 2)   # 2回目の試行で成功
+        self.assertEqual(sleeps, [1])     # 一時エラーで1回だけ待った
+
+    def test_retry_stops_on_permanent_error(self):
+        """恒久エラー(exit 1)では再試行せず即停止する。"""
+        class PermErrClient:
+            def fins_summary(self, date=None, **kwargs):
+                raise JQuantsError("その他の恒久エラー")
+
+            def equities_master(self, **kwargs):
+                return []
+
+        def factory(*args, **kwargs):
+            return PermErrClient()
+
+        sleeps = []
+        with unittest.mock.patch.object(sdd, "JQuantsClient", factory):
+            with redirect_stderr(io.StringIO()):
+                code = sdd.main(
+                    ["--month", "2025-09", "--no-cache", "--retry"],
+                    sleep=sleeps.append,
+                )
+        self.assertEqual(code, 1)
+        self.assertEqual(sleeps, [])      # 待たずに即停止
+
+
+class TestCliValidation(unittest.TestCase):
+    """引数バリデーション（不正値は argparse の parser.error → SystemExit）。"""
+
+    def _expect_exit(self, argv):
+        with redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                sdd.main(argv)
+
+    def test_negative_limit_rejected(self):
+        self._expect_exit(["--month", "2025-09", "--limit", "-1"])
+
+    def test_negative_max_rps_rejected(self):
+        self._expect_exit(["--month", "2025-09", "--max-rps", "-1"])
+
+    def test_bad_month_format_rejected(self):
+        for bad in ["2025-13", "2025/09", "garbage", "2025-9"]:
+            self._expect_exit(["--month", bad])
+
+    def test_max_rps_zero_passes_validation(self):
+        """--max-rps 0（スロットル無効）は許可される（過剰に弾かない回帰防止）。"""
+        class EmptyClient:
+            def fins_summary(self, date=None, **kwargs):
+                return []
+
+            def equities_master(self, **kwargs):
+                return []
+
+        with unittest.mock.patch.object(sdd, "JQuantsClient", lambda *a, **k: EmptyClient()):
+            with redirect_stderr(io.StringIO()):
+                code = sdd.main(["--month", "2025-09", "--no-cache", "--max-rps", "0"])
+        self.assertEqual(code, 0)
+
+
+if __name__ == "__main__":
+    unittest.main()
