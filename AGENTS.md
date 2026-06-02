@@ -10,3 +10,10 @@
 ## 使用言語
 
 プロンプトの応答や、コミットメッセージ、ソースコードコメントなど、自然言語を記述する場合は全て日本語で記述する
+
+## エージェント定義
+
+本リポジトリは Claude Code / Codex CLI / GitHub Copilot の 3 ツールに対応している。このファイル自体が
+全ツール共通の指示の単一ソース（`CLAUDE.md` / `README.md` / `.github/copilot-instructions.md` は symlink）。
+タスク特化エージェントの定義は `.agents/` を単一ソースとし、各ツール用ファイルへ展開している。
+追加・編集の手順は `docs/agents-convention.md` を参照すること。
