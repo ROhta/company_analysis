@@ -1,0 +1,12 @@
+name = "financial-data-extractor"
+description = "企業の財務資料から財務データを抽出し companyData JSON 形式に変換する"
+
+# 本文（手順・検証チェックリスト・出力形式）は .agents/ を単一ソースとして共有している。
+# Codex は TOML 形式のため Markdown 本文を symlink 共有できないので、本文への参照を指示する。
+developer_instructions = """
+このエージェントの完全な仕様（実行手順・データ検証チェックリスト・JSON 出力形式・注意事項）は
+リポジトリ内の `.agents/financial-data-extractor.md` に定義されています。
+
+作業を始める前に必ず `.agents/financial-data-extractor.md` を読み込み、
+そこに記載された手順とルールに厳密に従ってください。
+"""
