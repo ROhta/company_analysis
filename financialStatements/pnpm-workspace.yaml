@@ -1,0 +1,6 @@
+# pnpm の設定ファイル（単一パッケージでも pnpm 10/11 は設定をここに置く）。
+# pnpm はサプライチェーン保護のため依存の postinstall を既定でブロックする。
+# esbuild は vite が依存する正規のビルドツールで、postinstall でプラットフォーム別
+# バイナリを配置するため実行を許可する（未許可だとクリーンインストールで build が壊れ得る）。
+allowBuilds:
+  esbuild: true

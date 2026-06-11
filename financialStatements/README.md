@@ -6,11 +6,17 @@
 
 ### 起動
 
+ランタイム（Node.js / pnpm）は [mise](https://mise.jdx.dev/) で管理しています（`mise.toml`）。パッケージ依存自体は従来どおり pnpm（`pnpm-lock.yaml`）が解決し、mise は「正しい版の Node.js / pnpm を用意して各タスクを束ねる」役割です。
+
 ```bash
 cd financialStatements
-pnpm install
-pnpm dev
+mise install   # 初回のみ: node・pnpm を mise.toml / mise.lock の版で導入
+mise run dev   # 依存インストール込みで vite 開発サーバを起動
 ```
+
+定義済みタスク: `dev`（開発起動）/ `build`（本番ビルド）/ `preview`（ビルド結果のプレビュー）/ `install`（依存インストール）。実バージョンは `mise.lock` で固定されます（Node.js 24系 / pnpm 11系）。
+
+mise を使わない場合は `mise.toml` 記載の版を各自で用意し、`pnpm install && pnpm dev` でも起動できます。
 
 ### アクセス
 

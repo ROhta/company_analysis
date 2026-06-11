@@ -1,0 +1,39 @@
+# financialStatements の開発環境定義（mise）
+#
+# このディレクトリに入ると node / pnpm が自動で下記バージョンへ切り替わる。
+# パッケージ依存そのものは pnpm + pnpm-lock.yaml が解決し、mise は
+# 「正しいランタイムの用意 → pnpm install → vite 起動」をタスクとして束ねる。
+#
+# よく使うコマンド:
+#   mise install        # node/pnpm を導入（初回のみ）
+#   mise run dev         # 依存を入れて開発サーバ起動
+#   mise run build       # 本番ビルド
+#   mise run preview     # ビルド結果のプレビュー
+
+[tools]
+# node は 24 系の最新、pnpm は最新を取得する。
+# グローバル設定の node = "lts" をこのディレクトリでは上書きする。
+# "24" / "latest" は解決時に実バージョンへ確定し、mise.lock（lockfile=true）に固定される。
+node = "24"
+pnpm = "latest"
+
+[tasks.install]
+description = "pnpm で依存をインストール（入力に変化が無ければスキップ）"
+run = "pnpm install"
+sources = ["package.json", "pnpm-lock.yaml", "mise.toml"]
+outputs = ["node_modules/.pnpm/lock.yaml"]
+
+[tasks.dev]
+description = "依存を入れて vite 開発サーバを起動"
+run = "node --run dev"
+depends = ["install"]
+
+[tasks.build]
+description = "本番ビルド（vite build）"
+run = "node --run build"
+depends = ["install"]
+
+[tasks.preview]
+description = "ビルド結果をローカルでプレビュー"
+run = "node --run preview"
+depends = ["install"]
