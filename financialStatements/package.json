@@ -14,10 +14,10 @@
     "recharts": "^2.15.0"
   },
   "devDependencies": {
-    "@github/copilot": "^0.0.387",
+    "@github/copilot": "^1.0.43",
     "@tailwindcss/vite": "^4.1.18",
     "@vitejs/plugin-react": "^4.3.4",
     "tailwindcss": "^4.1.18",
-    "vite": "^6.0.7"
+    "vite": "^6.4.2"
   }
 }
