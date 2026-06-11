@@ -18,21 +18,19 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # mise が CI 上で financialStatements 配下の設定ファイルを信頼するよう明示
+      MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+      # node / pnpm のバージョンは financialStatements/mise.toml + mise.lock を単一ソースとして
+      # mise で導入する（ローカル開発と完全に同一の版: node 24.16.0 / pnpm 11.5.2）
+      - name: Setup mise (node / pnpm)
+        uses: jdx/mise-action@v4
         with:
-          version: 10
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-          cache: 'pnpm'
-          cache-dependency-path: financialStatements/pnpm-lock.yaml
+          working_directory: financialStatements
 
       - name: Install dependencies
         working-directory: financialStatements
