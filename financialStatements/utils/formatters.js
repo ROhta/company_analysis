@@ -15,6 +15,16 @@ export const toOku = (value) => (value / 100).toFixed(0);
 export const toOkuDecimal = (value) => (value / 100).toFixed(1);
 
 /**
+ * 百万円単位の値を符号付き億円単位（小数点1桁）に変換
+ * 正値は「+」、負値は「▲」を付け、絶対値で表示する。
+ * 増減額（IFRS企業の運転資本増減など正負どちらも取りうる項目）の表示に使う。
+ * @param {number} value - 百万円単位の値
+ * @returns {string} 例: "+1234.5" / "▲1838.7"
+ */
+export const toOkuSignedDecimal = (value) =>
+  `${value >= 0 ? '+' : '▲'}${toOkuDecimal(Math.abs(value))}`;
+
+/**
  * パーセンテージを計算
  * @param {number} part - 分子
  * @param {number} total - 分母

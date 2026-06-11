@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, ComposedChart, Line, ReferenceLine } from 'recharts';
-import { toOku, toOkuDecimal } from '../utils/formatters';
+import { toOku, toOkuDecimal, toOkuSignedDecimal } from '../utils/formatters';
 import { COLORS } from '../constants/colors';
 import { MetricCard } from './MetricCard';
 import { BreakdownPanel } from './BreakdownPanel';
@@ -179,7 +179,7 @@ export const CFSection = ({ cf, cfComparison, settings, getComment }) => {
             items={[
               { dotColor: 'bg-green-500', label: '税前利益', value: `${toOku(cf.details.営業CF.税前利益)}億円` },
               { dotColor: 'bg-green-400', label: '減価償却費', value: `+${toOku(cf.details.営業CF.減価償却費)}億円` },
-              { dotColor: 'bg-green-300', label: '運転資本増減等', value: `+${toOkuDecimal(cf.details.営業CF.運転資本増減)}億円` },
+              { dotColor: 'bg-green-300', label: '運転資本増減等', value: `${toOkuSignedDecimal(cf.details.営業CF.運転資本増減)}億円` },
             ]}
             comment={getComment('cf', 'operating')}
             commentBorderColor="border-green-200"
