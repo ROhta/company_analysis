@@ -94,7 +94,7 @@ export const PLSection = ({ pl, plComparison, settings }) => {
               <Legend />
               <Bar dataKey="売上高" fill={COLORS.pl.売上高} radius={[4, 4, 0, 0]} />
               <Bar dataKey="営業利益" fill={COLORS.pl.営業利益} radius={[4, 4, 0, 0]} />
-              <Bar dataKey="純利益" fill={COLORS.pl.当期純利益} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="当期純利益" fill={COLORS.pl.当期純利益} radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
