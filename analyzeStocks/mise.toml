@@ -1,0 +1,23 @@
+# analyzeStocks の開発環境定義（mise）
+#
+# このツールはサードパーティ製パッケージを使わない（本体もテストも標準ライブラリのみ）。
+# よって requirements.txt / uv.lock は不要で、mise が管理する「依存」は
+# Python インタプリタの版のみ。cd でこのディレクトリに入ると下記 Python へ自動切替する。
+#
+# よく使うコマンド:
+#   mise install   # Python を導入（初回のみ・プリビルド版を取得、コンパイル不要）
+#   mise run test  # 単体テスト（unittest, ネットワーク非依存）
+#   mise run screen -- --month 2025-09 --plan free   # 配当落ちスクリーニング
+
+[tools]
+# 標準ライブラリのみ・3.10+ 構文は不使用のため実質 3.8+ で動くが、版を固定して再現性を確保。
+# 解決された実バージョンは mise.lock（lockfile=true）に記録・固定される。
+python = "3.12"
+
+[tasks.test]
+description = "単体テスト（unittest, ネットワーク非依存）"
+run = "python -m unittest discover -p 'test_*.py' -v"
+
+[tasks.screen]
+description = "配当落ちスクリーニング（例: mise run screen -- --month 2025-09 --plan free）"
+run = "python screen_dividend_drop.py"
