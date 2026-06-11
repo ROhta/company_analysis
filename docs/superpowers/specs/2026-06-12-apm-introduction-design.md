@@ -80,7 +80,7 @@
 ```yaml
 name: stock-analysis
 version: 1.0.0
-description: AI agent config for the stock analysis tools repo
+description: 株式分析ツール群リポジトリの AI エージェント設定
 author: ROhta
 license: AGPL-3.0-or-later
 targets: [claude, codex, copilot]
