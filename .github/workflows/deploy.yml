@@ -18,9 +18,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      # mise が CI 上で financialStatements 配下の設定ファイルを信頼するよう明示
-      MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+    # 注: mise は CI 環境を検知すると設定を自動 trust するため MISE_TRUSTED_CONFIG_PATHS は不要。
+    # job レベル env では ${{ github.workspace }} が利用不可で startup_failure になるため設定しない。
     steps:
       - name: Checkout
         uses: actions/checkout@v6
