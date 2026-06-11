@@ -20,7 +20,10 @@ pnpm = "latest"
 [tasks.install]
 description = "pnpm で依存をインストール（入力に変化が無ければスキップ）"
 run = "pnpm install"
-sources = ["package.json", "pnpm-lock.yaml", "mise.toml"]
+# pnpm-workspace.yaml（ビルド承認等の設定）/ mise.lock（pnpm 実版）も入力に含め、
+# これらの変更時に再インストールが走るようにする。
+sources = ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "mise.toml", "mise.lock"]
+# pnpm はインストール時に node_modules/.pnpm/lock.yaml を生成するため出力判定に使える。
 outputs = ["node_modules/.pnpm/lock.yaml"]
 
 [tasks.dev]
