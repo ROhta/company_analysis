@@ -1,12 +1,12 @@
 # apm（Agent Package Manager）導入 実装プラン
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **エージェント実行者向け:** 必須サブスキル: superpowers:subagent-driven-development（推奨）または superpowers:executing-plans を使い、本プランをタスク単位で実装すること。各ステップは進捗管理のためチェックボックス（`- [ ]`）構文を用いる。
 
-**Goal:** [microsoft/apm](https://github.com/microsoft/apm) を導入し、`.apm/` を SSoT として各 AI ツール設定（指示・サブエージェント・MCP）を生成する運用へ移行する。
+**ゴール:** [microsoft/apm](https://github.com/microsoft/apm) を導入し、`.apm/` を SSoT として各 AI ツール設定（指示・サブエージェント・MCP）を生成する運用へ移行する。
 
-**Architecture:** `mise` で apm 本体（単独バイナリ）をピン。人間は `.apm/instructions/`・`.apm/agents/`・`apm.yml` のみ編集し、`apm install` / `apm compile` が `AGENTS.md`/`CLAUDE.md`・`.claude|.codex|.github/agents/`・`.mcp.json` 等を生成（`apm.lock.yaml` を除き gitignore）。既存の手書き symlink/TOML 規約は撤廃する。
+**アーキテクチャ:** `mise` で apm 本体（単独バイナリ）をピン。人間は `.apm/instructions/`・`.apm/agents/`・`apm.yml` のみ編集し、`apm install` / `apm compile` が `AGENTS.md`/`CLAUDE.md`・`.claude|.codex|.github/agents/`・`.mcp.json` 等を生成（`apm.lock.yaml` を除き gitignore）。既存の手書き symlink/TOML 規約は撤廃する。
 
-**Tech Stack:** mise, microsoft/apm 0.18.0（standalone binary）, YAML（apm.yml）, Markdown（instructions/agents）。MCP ランタイムは npx(node)/uvx(uv)。
+**技術スタック:** mise, microsoft/apm 0.18.0（単独バイナリ）, YAML（apm.yml）, Markdown（instructions/agents）。MCP ランタイムは npx(node)/uvx(uv)。
 
 **前提:** 設計仕様 `docs/superpowers/specs/2026-06-12-apm-introduction-design.md` 承認済み。作業ブランチ `feat/apm-introduction`（PR #23）。本プランは TDD ではなく**設定移行**のため、各タスクは「期待する検証コマンド → 実行 → 出力確認 → コミット」で進める。
 
@@ -49,7 +49,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
 
 Run:
 ```bash
-cd /home/ore/codes/stock_analysis
+cd "$(git rev-parse --show-toplevel)"   # リポジトリのルートで実行
 git branch --show-current
 git status --porcelain
 ```

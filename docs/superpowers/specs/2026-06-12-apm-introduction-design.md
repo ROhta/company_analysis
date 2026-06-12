@@ -14,7 +14,7 @@
 - **単独バイナリ**。apm 本体の実行に node/npm は不要。`mise`（`github:microsoft/apm`）でバージョン管理する。
 - **7 つの primitive** をサポート: Instructions / Agents / Prompts / Skills / Hooks / Context / MCP Servers。
 - `apm install` はランタイムを自動検出し、サブエージェントを **`.claude/agents/*.md`・`.codex/agents/*.toml`・`.github/agents/*.agent.md`** へ生成する（= 既存の手書きサブエージェント規約を apm に置換できる）。
-- `apm compile` は **instructions のみ**を `AGENTS.md` / `CLAUDE.md` / `GEMINI.md` / `.github/copilot-instructions.md` へマージ生成する（agents/prompts/skills は `apm install` 側が展開）。
+- `apm compile` は **instructions のみ**を `AGENTS.md` / `CLAUDE.md` / `GEMINI.md` へマージ生成する（agents/prompts/skills は `apm install` 側が展開）。Copilot 向けの instructions は `apm install` が `.github/instructions/`（gitignore）へ展開し、`.github/copilot-instructions.md` は **apm 生成対象に含めず手書きスタブとして別管理**する（§5.5）。`targets` に copilot を含めても compile が当該スタブを上書きしないことを実装時に確認する（§9）。
 - `apm.lock.yaml` の `deployed_files:` 重複バグは **v0.8.12 で修正済み**。pin する 0.18.0 では発生しないため、bingo の `scripts/dedupe-apm-lock.mjs`（node 製ワークアラウンド）と root `package.json` は**導入しない**。
 - ローカル primitive の置き場所は `.apm/<type>/`（`.apm/instructions/`・`.apm/agents/` 等）。`includes: auto` で `.apm/` 配下を全公開。
 
