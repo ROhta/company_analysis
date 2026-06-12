@@ -1,0 +1,40 @@
+name: stock-analysis
+version: 1.0.0
+description: 株式分析ツール群リポジトリの AI エージェント設定
+author: ROhta
+license: AGPL-3.0-or-later
+targets: [claude, codex, copilot]
+includes: auto
+dependencies:
+  mcp:
+    - name: context7
+      registry: false
+      transport: stdio
+      command: npx
+      args:
+        - -y
+        - "@upstash/context7-mcp@3.2.0"
+    - name: semgrep
+      registry: false
+      transport: stdio
+      command: uvx
+      args:
+        - semgrep-mcp
+    - name: serena
+      registry: false
+      transport: stdio
+      command: uvx
+      args:
+        - --from
+        - git+https://github.com/oraios/serena@acee002dc498e5f4c368eb9d45ab67e480d77832
+        - serena
+        - start-mcp-server
+    - name: chrome-devtools
+      registry: false
+      transport: stdio
+      command: npx
+      args:
+        - -y
+        - chrome-devtools-mcp@1.2.0
+  apm:
+    - obra/superpowers#6fd4507659784c351abbd2bc264c7162cfd386dc
