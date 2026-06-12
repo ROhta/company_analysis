@@ -21,9 +21,13 @@ Claude Code / Codex CLI / GitHub Copilot 向けの設定を管理している。
 ## セットアップ（AI エージェント設定の再生成）
 
 ```bash
-mise trust && mise install            # apm 本体（および各 mise ツール）を導入
-mise exec -- apm install              # MCP 設定・サブエージェント等を各ツールへ展開
-mise exec -- apm compile              # AGENTS.md / CLAUDE.md を生成
+mise trust && mise install                  # apm 本体（および各 mise ツール）を導入
+mise exec -- apm install                    # MCP 設定・サブエージェント等を各ツールへ展開
+mise exec -- apm compile --single-agents    # AGENTS.md / CLAUDE.md を生成
 ```
 
-備考: MCP サーバの起動には `node`（`npx` 用）と `uv`（`uvx` 用）が必要。
+備考:
+
+- MCP サーバの起動には `node`（`npx` 用）と `uv`（`uvx` 用）が必要。
+- compile は `--single-agents`（monolithic）を標準とする。既定の distributed モードでは
+  global 指示が AGENTS.md から除外され、AGENTS.md のみを読む Codex CLI に指示が届かないため。

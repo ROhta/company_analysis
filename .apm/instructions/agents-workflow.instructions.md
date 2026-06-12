@@ -33,11 +33,13 @@ apm CLI 本体のバージョンは root `mise.toml`（`github:microsoft/apm`）
 `.apm/` または `apm.yml` を編集後、以下で生成物を更新する。
 
 ```bash
-mise exec -- apm install   # MCP 設定・サブエージェント・instructions 等を各ツールへ展開
-mise exec -- apm compile   # AGENTS.md / CLAUDE.md を生成
+mise exec -- apm install                  # MCP 設定・サブエージェント・instructions 等を各ツールへ展開
+mise exec -- apm compile --single-agents  # AGENTS.md / CLAUDE.md を生成（monolithic）
 ```
 
 `apm.lock.yaml` を除く生成物は `.gitignore` 対象のためコミットに含まれない。
+
+compile は `--single-agents`（monolithic）を標準とする。既定の distributed モードでは applyTo を持たない global 指示が「既に `.github/instructions/` にある」として AGENTS.md から除外され、AGENTS.md のみを読む Codex CLI に global 指示が届かないため（Claude は `.claude/rules/`、Copilot は `.github/instructions/` から native に取得するので影響しない）。
 
 ## 新しい指示・エージェントの追加
 
