@@ -5,7 +5,7 @@ applyTo: ".apm/**"
 
 # apm 運用ルール
 
-## Source of Truth
+## 単一ソース（SSoT）
 
 `.apm/instructions/*.instructions.md`（全体指示）・`.apm/agents/*.agent.md`（サブエージェント）・`apm.yml`（MCP サーバと外部スキル）が人間の編集対象。ここを直すことで Claude Code / Codex CLI / GitHub Copilot すべてに同じ設定が届く。
 
