@@ -78,7 +78,7 @@
 ### 5.2 `apm.yml`（新規）
 
 ```yaml
-name: company-analysis
+name: company_analysis
 version: 1.0.0
 description: 株式分析ツール群リポジトリの AI エージェント設定
 author: ROhta

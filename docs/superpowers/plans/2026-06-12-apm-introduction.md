@@ -134,7 +134,7 @@ Expected: 4 つの具体値（例: `1.0.x` / `1.x.y` / 40 桁 SHA × 2）。`npm
 
 Create `apm.yml`:
 ```yaml
-name: company-analysis
+name: company_analysis
 version: 1.0.0
 description: 株式分析ツール群リポジトリの AI エージェント設定
 author: ROhta
