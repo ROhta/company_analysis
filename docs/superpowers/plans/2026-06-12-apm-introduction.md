@@ -134,7 +134,7 @@ Expected: 4 つの具体値（例: `1.0.x` / `1.x.y` / 40 桁 SHA × 2）。`npm
 
 Create `apm.yml`:
 ```yaml
-name: stock-analysis
+name: company-analysis
 version: 1.0.0
 description: 株式分析ツール群リポジトリの AI エージェント設定
 author: ROhta
@@ -363,7 +363,7 @@ Expected: symlink 削除（実体 AGENTS.md は残る）。
 
 Create `README.md`:
 ```markdown
-# stock_analysis
+# company_analysis
 
 企業分析に用いる自作ツール群を保管するリポジトリ。
 

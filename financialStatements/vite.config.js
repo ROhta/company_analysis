@@ -4,5 +4,5 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: '/stock_analysis/financialStatements/',
+  base: '/company_analysis/financialStatements/',
 })
