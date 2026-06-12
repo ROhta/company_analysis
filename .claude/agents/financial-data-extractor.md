@@ -1,1 +1,0 @@
-../../.agents/financial-data-extractor.md

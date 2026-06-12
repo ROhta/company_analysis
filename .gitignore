@@ -3,3 +3,31 @@ dist/
 __pycache__/
 *.pyc
 .jq_cache/
+
+# apm 依存・成果物
+apm_modules/
+
+# apm コンパイル成果物（.apm/ から apm install / apm compile で再生成）
+AGENTS.md
+CLAUDE.md
+.github/instructions/
+.claude/rules/
+
+# apm MCP 設定生成物
+.mcp.json
+.vscode/mcp.json
+.codex/config.toml
+
+# apm サブエージェント生成物
+.claude/agents/
+.codex/agents/
+.github/agents/
+
+# apm プラグイン展開先
+.agents/skills/
+.claude/skills/
+.claude/commands/
+.claude/hooks/
+.claude/settings.json
+.github/prompts/
+.github/hooks/
