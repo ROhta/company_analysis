@@ -1,5 +1,5 @@
 lockfile_version: '1'
-generated_at: '2026-06-12T01:12:50.013883+00:00'
+generated_at: '2026-06-12T03:03:06.912256+00:00'
 apm_version: 0.18.0
 dependencies:
 - repo_url: obra/superpowers
@@ -99,11 +99,11 @@ local_deployed_files:
 - .github/instructions/project-overview.instructions.md
 local_deployed_file_hashes:
   .claude/agents/financial-data-extractor.md: sha256:865e0e25e5340d32a95341daedca1074d587fbdfe28e76276308dfdfa7a4e29e
-  .claude/rules/agents-workflow.md: sha256:4ee5a4172ddcecb55ebae2c2ae7700b51cb50dc36b4df60f631f1397b9e739c3
+  .claude/rules/agents-workflow.md: sha256:b2dcc94cac5af3cf44070c67765435a264d8e7f637b4dfaea1abee1269e8fe89
   .claude/rules/language.md: sha256:047421e7342a256e3d408c71d33fd7741e416d48b534bd1f2f9dd9fb93fa40c5
   .claude/rules/project-overview.md: sha256:09b7e3c1276de2d6f20ce15f57e0542f0f136588bb8f0506b12fe5a266ad8d8c
   .codex/agents/financial-data-extractor.toml: sha256:76a17d58aa8a9d39939c2a54638916335e14a8f35447cf3b2b8b2642087c8285
   .github/agents/financial-data-extractor.agent.md: sha256:865e0e25e5340d32a95341daedca1074d587fbdfe28e76276308dfdfa7a4e29e
-  .github/instructions/agents-workflow.instructions.md: sha256:ac9c8c88074300721f85887583dc41aa396a46f4d942de7d82a24bb241c268d1
+  .github/instructions/agents-workflow.instructions.md: sha256:4fc57b61789304dd4da32ce1985954ecdc2c7b529a25489dacdd598d03c46bc0
   .github/instructions/language.instructions.md: sha256:c08744a6d3546c882ec9a2b16157898fd0f225838b5d3471048199951a2f42f0
   .github/instructions/project-overview.instructions.md: sha256:a6c1baa4418ab9360de4bc86d3437590dffec383e50f8a928dd5b9bfe75eda1c
