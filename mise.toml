@@ -1,0 +1,2 @@
+[tools]
+"github:microsoft/apm" = { version = "0.18.0", extract_all = "true" }
