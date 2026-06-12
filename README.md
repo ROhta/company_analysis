@@ -1,4 +1,4 @@
-# stock_analysis
+# company_analysis
 
 企業分析に用いる自作ツール群を保管するリポジトリ。
 
