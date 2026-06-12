@@ -3,3 +3,25 @@ dist/
 __pycache__/
 *.pyc
 .jq_cache/
+
+# apm 依存・成果物
+apm_modules/
+
+# apm コンパイル成果物（.apm/ から apm install / apm compile で再生成）
+AGENTS.md
+CLAUDE.md
+.github/instructions/
+
+# apm MCP 設定生成物
+.mcp.json
+.vscode/mcp.json
+
+# .claude/ と .codex/ は全て apm 生成物・ローカル設定のため丸ごと無視
+.claude/
+.codex/
+
+# .github 配下の apm 生成物（手書きの copilot-instructions.md・dependabot.yml・workflows 等と混在するため個別指定）
+.github/agents/
+.github/prompts/
+.github/hooks/
+.agents/skills/
