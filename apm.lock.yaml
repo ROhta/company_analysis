@@ -307,9 +307,9 @@ local_deployed_files:
 - .github/instructions/project-overview.instructions.md
 local_deployed_file_hashes:
   .claude/agents/financial-data-extractor.md: sha256:865e0e25e5340d32a95341daedca1074d587fbdfe28e76276308dfdfa7a4e29e
-  .claude/rules/agents-workflow.md: sha256:c595758f78bb5b46a6c016c7ac14f2251ae810f778384eee50b82726df514480
+  .claude/rules/agents-workflow.md: sha256:43aba9f1d1188534adb74c732dc299fc5e98a9f0d9dcf9de1e412f2a4962e24a
   .claude/rules/project-overview.md: sha256:09b7e3c1276de2d6f20ce15f57e0542f0f136588bb8f0506b12fe5a266ad8d8c
   .codex/agents/financial-data-extractor.toml: sha256:76a17d58aa8a9d39939c2a54638916335e14a8f35447cf3b2b8b2642087c8285
   .github/agents/financial-data-extractor.agent.md: sha256:865e0e25e5340d32a95341daedca1074d587fbdfe28e76276308dfdfa7a4e29e
-  .github/instructions/agents-workflow.instructions.md: sha256:580dbe384e88ecdccdb7410ff0f586084791bf9e5d3bb052ec6d032502997e07
+  .github/instructions/agents-workflow.instructions.md: sha256:276ea0e6714bdec1d70e75a6fe55d86d91e1430c343c9c102cd341c7201d5d2c
   .github/instructions/project-overview.instructions.md: sha256:a6c1baa4418ab9360de4bc86d3437590dffec383e50f8a928dd5b9bfe75eda1c
