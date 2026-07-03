@@ -1,11 +1,11 @@
 lockfile_version: '1'
-generated_at: '2026-07-03T07:30:21.521376+00:00'
+generated_at: '2026-07-03T10:31:33.655204+00:00'
 apm_version: 0.19.0
 dependencies:
 - repo_url: ROhta/apm-config
   host: github.com
   resolved_commit: 6db6099987990dbee05d8a34f00617467fb66d86
-  resolved_ref: main
+  resolved_ref: 6db6099987990dbee05d8a34f00617467fb66d86
   virtual_path: base
   is_virtual: true
   package_type: apm_package
@@ -23,7 +23,7 @@ dependencies:
 - repo_url: ROhta/apm-config
   host: github.com
   resolved_commit: 6db6099987990dbee05d8a34f00617467fb66d86
-  resolved_ref: main
+  resolved_ref: 6db6099987990dbee05d8a34f00617467fb66d86
   virtual_path: mcp-toolkit
   is_virtual: true
   package_type: apm_package
