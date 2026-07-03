@@ -28,7 +28,8 @@ apm CLI 本体のバージョンは root `mise.toml`（`github:microsoft/apm`）
 | `AGENTS.md` / `CLAUDE.md` | `apm compile` 生成 | ❌ |
 | `.claude/agents/`・`.codex/agents/`・`.github/agents/` | `apm install` 生成（サブエージェント3形式） | ❌ |
 | `.mcp.json`・`.vscode/mcp.json`・`.codex/config.toml` | `apm install` 生成（MCP 設定） | ❌ |
-| `.github/instructions/` | `apm install` 生成。クラウド Copilot Code Review が読めるよう例外的に追跡 | ✅ |
+| `.github/instructions/{pr-review,language}.instructions.md` | `apm install` 生成（base 由来）。クラウド Copilot Code Review 用に例外的に追跡 | ✅ |
+| `.github/instructions/` のその他 | `apm install` 生成。SoT は `.apm/` にあり重複のため追跡しない | ❌ |
 | `.claude/rules/`・`apm_modules/` 等 | `apm install` 生成 | ❌ |
 
 ## ローカルでの作業
@@ -51,4 +52,4 @@ compile は `--single-agents`（monolithic）を標準とする。既定の dist
 
 ## GitHub Copilot Code Review への指示伝達
 
-2026 年時点、Copilot Code Review は `AGENTS.md` を読まず `.github/copilot-instructions.md` または `.github/instructions/*.instructions.md` のみ読む。共通指示（pr-review 等）を apm-config/base へ移したため、生成物 `.github/instructions/*.instructions.md` を追跡対象にしてクラウド経路へ届ける（`.gitignore` 参照）。あわせて `.github/copilot-instructions.md` を SoT 参照スタブとして追跡する（apm の生成対象には含めない）。
+2026 年時点、Copilot Code Review は `AGENTS.md` を読まず `.github/copilot-instructions.md` または `.github/instructions/*.instructions.md` のみ読む。共通指示（pr-review / language）を apm-config/base へ移したため、その生成物 `.github/instructions/pr-review.instructions.md` / `language.instructions.md` のみ追跡対象にしてクラウド経路へ届ける（第三者依存や重複生成物は追跡しない。`.gitignore` 参照）。あわせて `.github/copilot-instructions.md` を SoT 参照スタブとして追跡する（apm の生成対象には含めない）。
