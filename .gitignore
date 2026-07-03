@@ -10,7 +10,8 @@ apm_modules/
 # apm コンパイル成果物（.apm/ から apm install / apm compile で再生成）
 AGENTS.md
 CLAUDE.md
-.github/instructions/
+# .github/instructions/ は生成物だが、クラウドの GitHub Copilot Code Review が読めるよう例外的に追跡する
+# (共通指示を apm-config/base へ移した後もクラウド経路にルールを届けるため)。
 
 # apm MCP 設定生成物
 .mcp.json

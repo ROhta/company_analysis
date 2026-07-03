@@ -1,7 +1,33 @@
 lockfile_version: '1'
-generated_at: '2026-06-12T05:12:27.888505+00:00'
+generated_at: '2026-07-03T07:30:21.521376+00:00'
 apm_version: 0.19.0
 dependencies:
+- repo_url: ROhta/apm-config
+  host: github.com
+  resolved_commit: 6db6099987990dbee05d8a34f00617467fb66d86
+  resolved_ref: main
+  virtual_path: base
+  is_virtual: true
+  package_type: apm_package
+  deployed_files:
+  - .claude/rules/language.md
+  - .claude/rules/pr-review.md
+  - .github/instructions/language.instructions.md
+  - .github/instructions/pr-review.instructions.md
+  deployed_file_hashes:
+    .claude/rules/language.md: sha256:ba3ab130598d94ac7e96e60a393f3d0fd9a00e69a3a6db7415690a53f5aea8ff
+    .claude/rules/pr-review.md: sha256:a641b7cf37e1d054e09509311d21f5ce3bdaf96ff238159a8650676740bc00e8
+    .github/instructions/language.instructions.md: sha256:18d17cabd53bf121ee02a80acfd67e071e5f3b5523d15f5c156f8a993e831092
+    .github/instructions/pr-review.instructions.md: sha256:245fe9b9e85f80e89b0872c985a45a96983032d12dd705a42ff7542f66fd244f
+  content_hash: sha256:1c25fd7fb561109e0f2809b5d0af0614f1bf9fdbf0091e783014d42004438986
+- repo_url: ROhta/apm-config
+  host: github.com
+  resolved_commit: 6db6099987990dbee05d8a34f00617467fb66d86
+  resolved_ref: main
+  virtual_path: mcp-toolkit
+  is_virtual: true
+  package_type: apm_package
+  content_hash: sha256:0346bf090250ac73e5d39f7ea6f32c0149313668c2ab8c9aab682cd32973e762
 - repo_url: obra/superpowers
   host: github.com
   resolved_commit: 6fd4507659784c351abbd2bc264c7162cfd386dc
@@ -274,20 +300,16 @@ mcp_configs:
 local_deployed_files:
 - .claude/agents/financial-data-extractor.md
 - .claude/rules/agents-workflow.md
-- .claude/rules/language.md
 - .claude/rules/project-overview.md
 - .codex/agents/financial-data-extractor.toml
 - .github/agents/financial-data-extractor.agent.md
 - .github/instructions/agents-workflow.instructions.md
-- .github/instructions/language.instructions.md
 - .github/instructions/project-overview.instructions.md
 local_deployed_file_hashes:
   .claude/agents/financial-data-extractor.md: sha256:865e0e25e5340d32a95341daedca1074d587fbdfe28e76276308dfdfa7a4e29e
-  .claude/rules/agents-workflow.md: sha256:b2dcc94cac5af3cf44070c67765435a264d8e7f637b4dfaea1abee1269e8fe89
-  .claude/rules/language.md: sha256:047421e7342a256e3d408c71d33fd7741e416d48b534bd1f2f9dd9fb93fa40c5
+  .claude/rules/agents-workflow.md: sha256:ea72781ca4a0a019f131cc433ba63b5731770a4a05463cdd07811c7368cb87f5
   .claude/rules/project-overview.md: sha256:09b7e3c1276de2d6f20ce15f57e0542f0f136588bb8f0506b12fe5a266ad8d8c
   .codex/agents/financial-data-extractor.toml: sha256:76a17d58aa8a9d39939c2a54638916335e14a8f35447cf3b2b8b2642087c8285
   .github/agents/financial-data-extractor.agent.md: sha256:865e0e25e5340d32a95341daedca1074d587fbdfe28e76276308dfdfa7a4e29e
-  .github/instructions/agents-workflow.instructions.md: sha256:4fc57b61789304dd4da32ce1985954ecdc2c7b529a25489dacdd598d03c46bc0
-  .github/instructions/language.instructions.md: sha256:c08744a6d3546c882ec9a2b16157898fd0f225838b5d3471048199951a2f42f0
+  .github/instructions/agents-workflow.instructions.md: sha256:805456f85d0c1cb25a8af58a6b11f6e8cf4fcd5d11717842b60a8c50ac2146a0
   .github/instructions/project-overview.instructions.md: sha256:a6c1baa4418ab9360de4bc86d3437590dffec383e50f8a928dd5b9bfe75eda1c
