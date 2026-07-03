@@ -1,6 +1,6 @@
 ---
 description: apm（Agent Package Manager）を介した AI エージェント設定の運用ルール
-applyTo: ".apm/**"
+applyTo: "{.apm/**,apm.yml,apm.lock.yaml,.gitignore}"
 ---
 
 # apm 運用ルール
