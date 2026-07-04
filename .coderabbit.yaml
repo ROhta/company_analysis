@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit 設定。ドキュメント: https://docs.coderabbit.ai/getting-started/yaml-configuration
+language: "ja-JP"
+tone_instructions: "指摘は具体的に。該当箇所・理由・可能なら修正案を含める。PR 本文の「## 見てほしいところ」を最優先で確認する。"
+
+reviews:
+  profile: "assertive"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: true
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+    ignore_usernames:
+      - "dependabot[bot]"
+  path_filters:
+    - "!**/node_modules/**"
+    - "!**/dist/**"
+    - "!**/__pycache__/**"
+    - "!**/*.pyc"
+    - "!**/.jq_cache/**"
+    - "!**/apm_modules/**"
+    - "!pnpm-lock.yaml"
+    - "!apm.lock.yaml"
+    - "!**/mise.lock"
+  path_instructions:
+    - path: "analyzeStocks/**/*.py"
+      instructions: |
+        - 標準ライブラリのみで実装する方針。安易にサードパーティ依存を追加する提案は避ける。
+        - J-Quants API 呼び出しの例外処理（ネットワークエラー・認証切れ・レート制限）とリトライ・終了コードの扱いが妥当か確認する。
+        - 配当落ち下落スクリーニング等の金融データ計算の正確性（境界値・欠損値・丸め/小数・符号）に注意する。
+        - 営業日・権利日等の日付計算（calendar_logic）の正確性、タイムゾーンやデータ範囲端の扱いを確認する。
+        - 型ヒントの付与と可読性、CLI 引数の検証を確認する。
+    - path: "analyzeStocks/test_*.py"
+      instructions: |
+        - テスト名が仕様を表現しているか、境界値・異常系がカバーされているか確認する。
+        - unittest によるネットワーク非依存（外部 API を叩かない）が保たれているか確認する。
+    - path: "financialStatements/**/*.jsx"
+      instructions: |
+        - React フックの依存配列・不要な再レンダリング・副作用の扱いに注意する。
+        - recharts へ渡すデータ整形の正確さ、財務数値の表示単位・桁区切り・欠損値/ゼロ除算の扱いを確認する。
+        - IFRS/日本基準など会計基準差の分岐や符号表示のロジックが正しいか確認する。
+    - path: "financialStatements/**/*.js"
+      instructions: |
+        - hooks / utils / constants のロジック純度・副作用の局所化を確認する。
+        - 財務数値のフォーマット（桁区切り・単位・欠損値/ゼロ除算）や定数定義の正確さに注意する。
+    - path: "**/*.md"
+      instructions: |
+        - README・設計/計画ドキュメントとコードの記述が整合しているか、実行手順が最新か確認する。
+  tools:
+    ruff:
+      enabled: true
+    eslint:
+      enabled: true
+    actionlint:
+      enabled: true
+    gitleaks:
+      enabled: true
+    markdownlint:
+      enabled: true
+    yamllint:
+      enabled: true
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - ".apm/instructions/*.md"
+      - ".github/instructions/*.md"
+      - "docs/agents-convention.md"
