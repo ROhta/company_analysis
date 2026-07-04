@@ -21,7 +21,7 @@ reviews:
     - "!**/*.pyc"
     - "!**/.jq_cache/**"
     - "!**/apm_modules/**"
-    - "!pnpm-lock.yaml"
+    - "!**/pnpm-lock.yaml"
     - "!apm.lock.yaml"
     - "!**/mise.lock"
   path_instructions:
