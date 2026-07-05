@@ -9,5 +9,5 @@ includes: auto
 dependencies:
   mcp: []
   apm:
-    - ROhta/apm-config/base#82831f48b6be9e1e70291813ae66a1fa68884c64
-    - ROhta/apm-config/mcp-toolkit#82831f48b6be9e1e70291813ae66a1fa68884c64
+    - ROhta/apm-config/base#319d9bf9958bdf07c9074daaffdafbbbbb7ebb22
+    - ROhta/apm-config/mcp-toolkit#319d9bf9958bdf07c9074daaffdafbbbbb7ebb22
