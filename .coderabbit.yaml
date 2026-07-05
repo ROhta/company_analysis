@@ -71,4 +71,3 @@ knowledge_base:
     filePatterns:
       - ".apm/instructions/*.md"
       - ".github/instructions/*.md"
-      - "docs/agents-convention.md"
