@@ -3,11 +3,11 @@ version: 1.0.0
 description: 株式分析ツール群リポジトリの AI エージェント設定
 author: ROhta
 license: AGPL-3.0-or-later
+type: instructions
 targets: [claude, codex, copilot]
 includes: auto
 dependencies:
   mcp: []
   apm:
-    - ROhta/apm-config/base#6db6099987990dbee05d8a34f00617467fb66d86
-    - ROhta/apm-config/mcp-toolkit#6db6099987990dbee05d8a34f00617467fb66d86
-    - obra/superpowers#6fd4507659784c351abbd2bc264c7162cfd386dc
+    - ROhta/apm-config/base#82831f48b6be9e1e70291813ae66a1fa68884c64
+    - ROhta/apm-config/mcp-toolkit#82831f48b6be9e1e70291813ae66a1fa68884c64

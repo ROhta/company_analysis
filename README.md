@@ -16,18 +16,16 @@ Claude Code / Codex CLI / GitHub Copilot 向けの設定を管理している。
 
 - 編集対象（SSoT）: `.apm/instructions/`・`.apm/agents/`・`apm.yml`
 - 生成物（`apm install` / `apm compile`）: `AGENTS.md` / `CLAUDE.md` / 各ツールの agents・MCP 設定（`apm.lock.yaml` を除き gitignore）
-- 運用ルールの詳細: `.apm/instructions/agents-workflow.instructions.md` および `docs/agents-convention.md`
+- 共通運用ルール（言語・PR レビュー・開発フロー・apm 運用）は共通パッケージ [`ROhta/apm-config/base`](https://github.com/ROhta/apm-config) が配信する。リポジトリ固有のサブエージェント運用のみ `.apm/instructions/agents-workflow.instructions.md` を参照。
 
 ## セットアップ（AI エージェント設定の再生成）
 
 ```bash
-mise trust && mise install                  # apm 本体（および各 mise ツール）を導入
-mise exec -- apm install                    # MCP 設定・サブエージェント等を各ツールへ展開
-mise exec -- apm compile --single-agents    # AGENTS.md / CLAUDE.md を生成
+mise trust && mise install    # apm 本体（および各 mise ツール）を導入
+mise exec -- apm install      # MCP 設定・サブエージェント等を各ツールへ展開
+mise exec -- apm compile      # AGENTS.md / CLAUDE.md を生成
 ```
 
 備考:
 
 - MCP サーバの起動には `node`（`npx` 用）と `uv`（`uvx` 用）が必要。
-- compile は `--single-agents`（monolithic）を標準とする。既定の distributed モードでは
-  global 指示が AGENTS.md から除外され、AGENTS.md のみを読む Codex CLI に指示が届かないため。
