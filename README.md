@@ -2,30 +2,21 @@
 
 企業分析に用いる自作ツール群を保管するリポジトリ。
 
-## ツール
+## ドキュメント
 
-- **analyzeStocks/** — J-Quants API を用いた株価スクリーニング等（Python / mise 管理）。
-- **financialStatements/** — 財務諸表の可視化ダッシュボード（Vite / mise 管理）。
+リポジトリ固有の指示は `.apm/instructions/` に集約しています。これらは [microsoft/apm](https://github.com/microsoft/apm) によって管理され、`apm compile` で Claude Code / Codex / GitHub Copilot 向けファイル (`CLAUDE.md` / `AGENTS.md` / `.claude/rules/` / `.github/instructions/`) にローカルで展開されます。
 
-各ツールの詳細は各ディレクトリの README.md を参照。
+| ファイル | 内容 |
+| --- | --- |
+| [`project-overview`](.apm/instructions/project-overview.instructions.md) | 本リポジトリの目的と全体像 |
+| [`agents-workflow`](.apm/instructions/agents-workflow.instructions.md) | サブエージェント（`.apm/agents`）運用ルール |
+| [`tools`](.apm/instructions/tools.instructions.md) | 保管する自作ツール群（analyzeStocks / financialStatements）の一覧 |
+| [`setup`](.apm/instructions/setup.instructions.md) | AI エージェント設定（生成物）の再生成手順 |
 
-## AI エージェント設定
+他リポジトリ共通の指示（言語・PR レビュー・開発フロー・apm 運用）は共通パッケージ [`ROhta/apm-config/base`](https://github.com/ROhta/apm-config) から `apm install` で配信され、ローカルの `.apm/instructions/` には保持しません。共通指示を変更したい場合は apm-config を編集します。
 
-本リポジトリは [microsoft/apm](https://github.com/microsoft/apm)（Agent Package Manager）で
-Claude Code / Codex CLI / GitHub Copilot 向けの設定を管理している。
+## MCP
 
-- 編集対象（SSoT）: `.apm/instructions/`・`.apm/agents/`・`apm.yml`
-- 生成物（`apm install` / `apm compile`）: `AGENTS.md` / `CLAUDE.md` / 各ツールの agents・MCP 設定（`apm.lock.yaml` を除き gitignore）
-- 共通運用ルール（言語・PR レビュー・開発フロー・apm 運用）は共通パッケージ [`ROhta/apm-config/base`](https://github.com/ROhta/apm-config) が配信する。リポジトリ固有のサブエージェント運用のみ `.apm/instructions/agents-workflow.instructions.md` を参照。
+共通 MCP サーバー (context7 / serena / deepwiki / chrome-devtools) も apm-config/mcp-toolkit から配信されます。うち chrome-devtools は transitive なプラグイン参照のため、導入時は `apm install --trust-transitive-mcp` が必要です。
 
-## セットアップ（AI エージェント設定の再生成）
-
-```bash
-mise trust && mise install    # apm 本体（および各 mise ツール）を導入
-mise exec -- apm install      # MCP 設定・サブエージェント等を各ツールへ展開
-mise exec -- apm compile      # AGENTS.md / CLAUDE.md を生成
-```
-
-備考:
-
-- MCP サーバの起動には `node`（`npx` 用）と `uv`（`uvx` 用）が必要。
+MCP サーバーの起動には `node`（`npx` 用）と `uv`（`uvx` 用）が必要です。
