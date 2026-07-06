@@ -1,5 +1,5 @@
 lockfile_version: '1'
-generated_at: '2026-07-05T21:34:59.045652+00:00'
+generated_at: '2026-07-06T20:47:18.089436+00:00'
 apm_version: 0.24.0
 dependencies:
 - repo_url: ROhta/apm-config
