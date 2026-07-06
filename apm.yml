@@ -9,5 +9,9 @@ includes: auto
 dependencies:
   mcp: []
   apm:
+    # apm-config 自身の共通パッケージ（base / mcp-toolkit）は apm.lock.yaml をコミットする運用のため
+    # #main 参照でよい。lock が解決済み SHA（resolved_commit）を固定し、apm update するまでドリフトしない。
+    # 外部サードパーティ（obra/superpowers 等）は #sha 必須。詳細は .claude/rules/apm-plugins.md
+    # 「バージョン固定」節・apm-config README を参照。
     - ROhta/apm-config/base#main
     - ROhta/apm-config/mcp-toolkit#main
