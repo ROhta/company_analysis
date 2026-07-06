@@ -12,7 +12,7 @@
 [tools]
 # 標準ライブラリのみ・3.10+ 構文は不使用のため実質 3.8+ で動くが、版を固定して再現性を確保。
 # 解決された実バージョンは mise.lock（lockfile=true）に記録・固定される。
-python = "3.12"
+python = "3.14"
 
 [tasks.test]
 description = "単体テスト（unittest, ネットワーク非依存）"
