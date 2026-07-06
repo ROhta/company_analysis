@@ -4,7 +4,7 @@
 
 ## ドキュメント
 
-リポジトリ固有の指示は `.apm/instructions/` に集約しています。これらは [microsoft/apm](https://github.com/microsoft/apm) によって管理され、`apm compile` で Claude Code / Codex / GitHub Copilot 向けファイル (`CLAUDE.md` / `AGENTS.md` / `.claude/rules/` / `.github/instructions/`) にローカルで展開されます。
+リポジトリ固有の指示は `.apm/instructions/` に集約しています。これらは [microsoft/apm](https://github.com/microsoft/apm) によって管理され、`apm compile` で `CLAUDE.md` / `AGENTS.md` に、`apm install` で `.claude/rules/` / `.github/instructions/` 等の各ツール (Claude Code / Codex / GitHub Copilot) 向けファイルに、ローカルで展開されます。
 
 | ファイル | 内容 |
 | --- | --- |
