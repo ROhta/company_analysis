@@ -9,15 +9,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "recharts": "^2.15.0"
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "recharts": "^3.9.2"
   },
   "devDependencies": {
-    "@github/copilot": "^1.0.43",
-    "@tailwindcss/vite": "^4.1.18",
-    "@vitejs/plugin-react": "^4.3.4",
-    "tailwindcss": "^4.1.18",
-    "vite": "^6.4.3"
+    "@github/copilot": "^1.0.68",
+    "@tailwindcss/vite": "^4.3.2",
+    "@vitejs/plugin-react": "^6.0.3",
+    "tailwindcss": "^4.3.2",
+    "vite": "^8.1.3"
   }
 }

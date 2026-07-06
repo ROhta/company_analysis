@@ -1,6 +1,6 @@
 lockfile_version: '1'
-generated_at: '2026-07-05T01:45:52.606248+00:00'
-apm_version: 0.23.1
+generated_at: '2026-07-06T10:21:02.747622+00:00'
+apm_version: 0.24.0
 dependencies:
 - repo_url: ROhta/apm-config
   name: apm-config-base
@@ -213,6 +213,7 @@ dependencies:
   - .agents/skills/writing-skills/render-graphs.js
   - .agents/skills/writing-skills/testing-skills-with-subagents.md
   - .claude/hooks/superpowers/hooks/run-hook.cmd
+  - .claude/hooks/superpowers/hooks/session-start
   - .claude/skills/brainstorming
   - .claude/skills/brainstorming/SKILL.md
   - .claude/skills/brainstorming/scripts/frame-template.html
@@ -276,7 +277,9 @@ dependencies:
   - .claude/skills/writing-skills/render-graphs.js
   - .claude/skills/writing-skills/testing-skills-with-subagents.md
   - .codex/hooks/superpowers/hooks/run-hook.cmd
+  - .codex/hooks/superpowers/hooks/session-start
   - .github/hooks/scripts/superpowers/hooks/run-hook.cmd
+  - .github/hooks/scripts/superpowers/hooks/session-start
   - .github/hooks/superpowers-hooks.json
   deployed_file_hashes:
     .agents/skills/brainstorming/SKILL.md: sha256:e14914605f640e0841758e45d0ab2a53243b59b921f929e47921c99668f2e61d
@@ -328,6 +331,7 @@ dependencies:
     .agents/skills/writing-skills/render-graphs.js: sha256:ccda971a87bb185f8febf81c56b556a20d026fa980c17b35fa3e8824fbb37852
     .agents/skills/writing-skills/testing-skills-with-subagents.md: sha256:c711346852c911b24a84aa161e0cff06a4cd7f4e2fa9e9c0a266cead5afcbade
     .claude/hooks/superpowers/hooks/run-hook.cmd: sha256:d3d9c6199678dab2858e60509dde5e7414f13c2a2b5e48a38b1d368b6e1d6abb
+    .claude/hooks/superpowers/hooks/session-start: sha256:88a060272ca8047e0d1cd73a016e1cebba8396807a44be1e296d7c02dcbb9934
     .claude/skills/brainstorming/SKILL.md: sha256:e14914605f640e0841758e45d0ab2a53243b59b921f929e47921c99668f2e61d
     .claude/skills/brainstorming/scripts/frame-template.html: sha256:6a8a4e58bd6a44b904e2e3c57de774481d909204597e1498de53f1b2fecc4c4e
     .claude/skills/brainstorming/scripts/helper.js: sha256:43c6d69954a46ec34a2a262bcc62a9a7e83e839c739f199cb72646d397c686e3
@@ -377,7 +381,9 @@ dependencies:
     .claude/skills/writing-skills/render-graphs.js: sha256:ccda971a87bb185f8febf81c56b556a20d026fa980c17b35fa3e8824fbb37852
     .claude/skills/writing-skills/testing-skills-with-subagents.md: sha256:c711346852c911b24a84aa161e0cff06a4cd7f4e2fa9e9c0a266cead5afcbade
     .codex/hooks/superpowers/hooks/run-hook.cmd: sha256:d3d9c6199678dab2858e60509dde5e7414f13c2a2b5e48a38b1d368b6e1d6abb
+    .codex/hooks/superpowers/hooks/session-start: sha256:88a060272ca8047e0d1cd73a016e1cebba8396807a44be1e296d7c02dcbb9934
     .github/hooks/scripts/superpowers/hooks/run-hook.cmd: sha256:d3d9c6199678dab2858e60509dde5e7414f13c2a2b5e48a38b1d368b6e1d6abb
+    .github/hooks/scripts/superpowers/hooks/session-start: sha256:88a060272ca8047e0d1cd73a016e1cebba8396807a44be1e296d7c02dcbb9934
     .github/hooks/superpowers-hooks.json: sha256:414b2cda93dfd4523ea183cc02c29b17b7c92bbfd54ad89acd83aadac042ea5a
   content_hash: sha256:fcec2b6832dc4a4ce8fd0b7883fc72531fb402dd76537b62e495ab5c09742cf4
   declared_license: MIT
