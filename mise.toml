@@ -1,2 +1,7 @@
 [tools]
+# github バックエンドのツールは version+backend のみが lock されるため、版数を上げたら
+# 必ず `mise lock 'github:microsoft/apm' -p linux-arm64,linux-arm64-musl,linux-x64,linux-x64-musl,macos-arm64,macos-x64,windows-x64`
+# を実行してプラットフォーム別 URL / checksum を mise.lock に再生成すること。
+# 未生成だと CI（deploy.yml）の `mise install --locked` が linux-x64 で
+# "No lockfile URL found" により失敗する。
 "github:microsoft/apm" = { version = "0.24.0", extract_all = "true" }
