@@ -1,8 +1,8 @@
 lockfile_version: '1'
-generated_at: '2026-07-11T09:11:24.016219+00:00'
-apm_version: 0.24.0
+generated_at: '2026-07-12T03:50:11.178540+00:00'
+apm_version: 0.24.1
 dependencies:
-- repo_url: ROhta/apm-config
+- repo_url: rohta/apm-config
   name: apm-config-base
   host: github.com
   resolved_commit: c150cfffc0199321928d524b15a91b95888ccfd6
@@ -43,7 +43,7 @@ dependencies:
     .github/instructions/review-response-loop.instructions.md: sha256:602254403a6890a64a55669472a1549f34e7383b3afb29f0fdb9989b8dfce5f8
   content_hash: sha256:ae1d68b5b9c18c29224809795582b0a7905ecc4b8d150401f39501eeb60483e3
   declared_license: GPL-3.0-or-later
-- repo_url: ROhta/apm-config
+- repo_url: rohta/apm-config
   name: apm-config-mcp-toolkit
   host: github.com
   resolved_commit: c150cfffc0199321928d524b15a91b95888ccfd6
@@ -60,14 +60,14 @@ dependencies:
     .github/instructions/mcp-servers.instructions.md: sha256:cdeddcff5d85e9a794f5cea2a8aa82d8ed2bbccac6121a1ccf6b81606d700fbd
   content_hash: sha256:f1216e3378549db86cd96c5e82e40da5ced05eb0db153c70a505359e07653d36
   declared_license: GPL-3.0-or-later
-- repo_url: ChromeDevTools/chrome-devtools-mcp
+- repo_url: chromedevtools/chrome-devtools-mcp
   name: chrome-devtools-mcp
   host: github.com
   resolved_commit: 913308263bdc8042af74924b68dc39a374ad071d
   resolved_ref: 913308263bdc8042af74924b68dc39a374ad071d
   version: 1.5.0
   depth: 2
-  resolved_by: ROhta/apm-config
+  resolved_by: rohta/apm-config
   package_type: marketplace_plugin
   deployed_files:
   - .agents/skills/a11y-debugging
@@ -151,7 +151,7 @@ dependencies:
   resolved_ref: d884ae04edebef577e82ff7c4e143debd0bbec99
   version: 6.1.1
   depth: 2
-  resolved_by: ROhta/apm-config
+  resolved_by: rohta/apm-config
   package_type: marketplace_plugin
   deployed_files:
   - .agents/skills/brainstorming
@@ -436,6 +436,11 @@ mcp_configs:
     - start-mcp-server
     registry: false
     command: uvx
+mcp_config_provenance:
+  chrome-devtools: chrome-devtools-mcp
+  context7: apm-config-mcp-toolkit
+  deepwiki: apm-config-mcp-toolkit
+  serena: apm-config-mcp-toolkit
 local_deployed_files:
 - .claude/agents/financial-data-extractor.md
 - .claude/rules/agents-workflow.md
