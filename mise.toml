@@ -6,4 +6,4 @@
 # を再実行して URL / checksum を mise.lock に更新すること。
 # 未生成のままだと CI（deploy.yml）の `mise install --locked` が linux-x64 で
 # "No lockfile URL found" により失敗する。
-"github:microsoft/apm" = { version = "0.24.0", extract_all = "true" }
+"github:microsoft/apm" = { version = "0.24.1", extract_all = "true" }
