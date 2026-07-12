@@ -12,7 +12,8 @@ dependencies:
     # Source of Truth は apm-config/mcp-toolkit 側。詳細は .claude/rules/mcp-servers.md 参照。
     # flint-chart: Flint（チャート仕様生成の中間言語）の MCP サーバ。data + semantic_types +
     # chart_spec から最適化済みの Vega-Lite / ECharts / Chart.js spec を生成・描画する。
-    # レジストリは使わず self-defined。pin 必須方針に従い npm バージョンを固定（@latest 禁止）。
+    # flint-chart-mcp は APM レジストリ未登録のため self-defined（レジストリ優先方針のフォールバック）。
+    # pin 必須方針に従い npm バージョンを @0.2.0 に固定（@latest 禁止）。
     - name: flint-chart
       registry: false
       transport: stdio
