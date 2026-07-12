@@ -1,5 +1,5 @@
 lockfile_version: '1'
-generated_at: '2026-07-12T03:59:25.827842+00:00'
+generated_at: '2026-07-12T06:14:12.585661+00:00'
 apm_version: 0.24.1
 dependencies:
 - repo_url: rohta/apm-config
@@ -392,11 +392,19 @@ dependencies:
   content_hash: sha256:fcec2b6832dc4a4ce8fd0b7883fc72531fb402dd76537b62e495ab5c09742cf4
   declared_license: MIT
 mcp_servers:
+- chrome-devtools
 - context7
 - deepwiki
 - flint-chart
 - serena
 mcp_configs:
+  chrome-devtools:
+    name: chrome-devtools
+    transport: stdio
+    args:
+    - chrome-devtools-mcp@1.5.0
+    registry: false
+    command: npx
   context7:
     name: context7
     transport: stdio
@@ -429,6 +437,7 @@ mcp_configs:
     registry: false
     command: uvx
 mcp_config_provenance:
+  chrome-devtools: chrome-devtools-mcp
   context7: apm-config-mcp-toolkit
   deepwiki: apm-config-mcp-toolkit
   serena: apm-config-mcp-toolkit
