@@ -1,5 +1,5 @@
 lockfile_version: '1'
-generated_at: '2026-07-06T21:14:51.739073+00:00'
+generated_at: '2026-07-11T09:11:24.016219+00:00'
 apm_version: 0.24.0
 dependencies:
 - repo_url: ROhta/apm-config
@@ -395,6 +395,7 @@ mcp_servers:
 - chrome-devtools
 - context7
 - deepwiki
+- flint-chart
 - serena
 mcp_configs:
   chrome-devtools:
@@ -417,6 +418,14 @@ mcp_configs:
     transport: http
     registry: false
     url: https://mcp.deepwiki.com/mcp
+  flint-chart:
+    name: flint-chart
+    transport: stdio
+    args:
+    - -y
+    - flint-chart-mcp@0.2.0
+    registry: false
+    command: npx
   serena:
     name: serena
     transport: stdio
@@ -431,15 +440,23 @@ local_deployed_files:
 - .claude/agents/financial-data-extractor.md
 - .claude/rules/agents-workflow.md
 - .claude/rules/project-overview.md
+- .claude/rules/setup.md
+- .claude/rules/tools.md
 - .codex/agents/financial-data-extractor.toml
 - .github/agents/financial-data-extractor.agent.md
 - .github/instructions/agents-workflow.instructions.md
 - .github/instructions/project-overview.instructions.md
+- .github/instructions/setup.instructions.md
+- .github/instructions/tools.instructions.md
 local_deployed_file_hashes:
   .claude/agents/financial-data-extractor.md: sha256:865e0e25e5340d32a95341daedca1074d587fbdfe28e76276308dfdfa7a4e29e
   .claude/rules/agents-workflow.md: sha256:fd17ac764e87720532852fb276a163ba9fd7c35124ec0c1a8e9d856e40d8d7df
   .claude/rules/project-overview.md: sha256:09b7e3c1276de2d6f20ce15f57e0542f0f136588bb8f0506b12fe5a266ad8d8c
+  .claude/rules/setup.md: sha256:e70f2417dfdc7d1f4c2c653cf6ff3874f0bd6f7b5639288822f25f1ad5d85aad
+  .claude/rules/tools.md: sha256:db1a76f64e67bb24d22ed19aa429ff0c211b255ef11d80d07f303f544a83deda
   .codex/agents/financial-data-extractor.toml: sha256:76a17d58aa8a9d39939c2a54638916335e14a8f35447cf3b2b8b2642087c8285
   .github/agents/financial-data-extractor.agent.md: sha256:865e0e25e5340d32a95341daedca1074d587fbdfe28e76276308dfdfa7a4e29e
   .github/instructions/agents-workflow.instructions.md: sha256:76515950138e4268a838fe2d63273263e8a80029cb3abc0bf6beda182756dca7
   .github/instructions/project-overview.instructions.md: sha256:a6c1baa4418ab9360de4bc86d3437590dffec383e50f8a928dd5b9bfe75eda1c
+  .github/instructions/setup.instructions.md: sha256:1eebfdd499136c19376d388b16907221f5b28dc0800aa0eb689504d7083ed517
+  .github/instructions/tools.instructions.md: sha256:488cf34134f4151ccc859a51f1536ed66aaf8de3ead8a6d68b17ba27e2bb1dcb
