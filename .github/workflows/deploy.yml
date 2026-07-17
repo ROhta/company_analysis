@@ -27,7 +27,7 @@ jobs:
       # node / pnpm のバージョンは financialStatements/mise.toml + mise.lock を単一ソースとして
       # mise で導入する（ローカル開発と完全に同一の版: node 24.16.0 / pnpm 11.5.2）
       - name: Setup mise (node / pnpm)
-        uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+        uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
         with:
           working_directory: financialStatements
 
