@@ -31,7 +31,7 @@ jobs:
       # mise 本体も固定する。未指定だと最新リリースが入るため、lockfile を解釈する側だけが
       # 浮動して再現性が崩れる。値は実 CI ログで確認した版のみを書く（推測で書かない）。
       - name: Setup mise (node / pnpm)
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5 # v5.0.0
         with:
           working_directory: financialStatements
           version: "2026.7.14"
