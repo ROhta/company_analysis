@@ -56,6 +56,9 @@ jobs:
 
       - name: Run screening
         working-directory: analyzeStocks
+        # shell: bash を明示すると pipefail が有効になり、python の失敗が
+        # tee の成功で隠れず failure() 側へ伝播する
+        shell: bash
         env:
           JQUANTS_API_KEY: ${{ secrets.JQUANTS_API_KEY }}
         run: |

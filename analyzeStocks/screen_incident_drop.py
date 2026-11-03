@@ -67,7 +67,8 @@ def parse_incidents(csv_text):
             announce_date = cl.parse_date(raw_date)
         except ValueError:
             raise ValueError("{}行目: announce_date の形式が不正です: {!r}".format(lineno, raw_date))
-        key = (code, announce_date)
+        # 重複判定は正規化後のコードで行う（5803 と 58030 は同一銘柄）
+        key = (normalize_code(code), announce_date)
         if key in seen:
             continue
         seen.add(key)
@@ -75,6 +76,19 @@ def parse_incidents(csv_text):
     if not incidents:
         raise ValueError("CSVに有効な事例がありません")
     return incidents
+
+
+def normalize_code(code):
+    """表示用の4桁コードを J-Quants の5桁形式（末尾0）へ正規化する純粋関数。
+
+    J-Quants の master / bars は 86970 のような5桁コードで返るため、
+    入力が4桁のときは末尾に "0" を付けて API 呼び出し・master 照合に使う。
+    5桁以上はそのまま返す。表示には入力コードをそのまま使うこと。
+    """
+    code = str(code).strip()
+    if len(code) == 4:
+        return code + "0"
+    return code
 
 
 def build_market_index_all(master_rows):
@@ -114,12 +128,14 @@ def run(client, incidents, window):
     for i, ev in enumerate(incidents, 1):
         print("[info] 事例 {}/{}: {} 公表{}".format(i, total, ev.code, ev.announce_date),
               file=sys.stderr)
+        api_code = normalize_code(ev.code)
         bars = client.bars_daily(
-            ev.code,
+            api_code,
             from_=(ev.announce_date - datetime.timedelta(days=BARS_PAD_DAYS)).strftime("%Y%m%d"),
-            to=(ev.announce_date + datetime.timedelta(days=BARS_PAD_DAYS)).strftime("%Y%m%d"),
+            to=(ev.announce_date + datetime.timedelta(
+                days=BARS_PAD_DAYS + window * 2)).strftime("%Y%m%d"),
         )
-        name, market = market_index.get(ev.code, (ev.name, ""))
+        name, market = market_index.get(api_code, (ev.name, ""))
         if not bars:
             print("[warn] {} 株価barsが空。スキップ".format(ev.code), file=sys.stderr)
             continue
@@ -200,6 +216,10 @@ def _run_once(args, incidents, min_interval):
     except (ValueError, KeyError) as e:
         print("[error] APIレスポンスの形式が想定外です: {}".format(e), file=sys.stderr)
         return EXIT_ERROR
+    except OverflowError as e:
+        print("[error] 日付計算が範囲外です（--window が大きすぎる可能性）: {}".format(e),
+              file=sys.stderr)
+        return EXIT_ERROR
 
     print(format_results_markdown(results, args.window))
     return EXIT_OK
@@ -235,6 +255,8 @@ def main(argv=None, sleep=time.sleep):
 
     if args.window < 1:
         parser.error("--window は1以上を指定してください")
+    if args.window > 1000:
+        parser.error("--window は1000以下を指定してください")
     if args.retry_wait < 0:
         parser.error("--retry-wait は0以上を指定してください")
     if args.max_rps is not None and args.max_rps < 0:
