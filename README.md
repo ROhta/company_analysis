@@ -17,6 +17,6 @@
 
 ## MCP
 
-共通 MCP サーバー (context7 / serena / deepwiki / chrome-devtools) も apm-config/mcp-toolkit から配信されます。うち chrome-devtools は transitive なプラグイン参照のため、導入時は `apm install --trust-transitive-mcp` が必要です。
+共通 MCP サーバー (context7 / serena / deepwiki / chrome-devtools) も apm-config/mcp-toolkit から配信されます。すべて直接定義の MCP のため、`--trust-transitive-mcp` は不要です (apm-config/mcp-toolkit 1.4.0 以降)。
 
 MCP サーバーの起動には `node`（`npx` 用）と `uv`（`uvx` 用）が必要です。
