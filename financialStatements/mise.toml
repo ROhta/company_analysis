@@ -28,8 +28,8 @@
 # 7 件が全消失した）。復元し忘れると CI の `mise install --locked` が linux-x64 で
 # "No lockfile URL found" により失敗する。実行後は platforms.* の数を更新前と必ず比較すること。
 # なお pnpm は macos-x64 の成果物を持たないため 6 件が正常（欠損ではない）。
-node = "26.5.0"
-pnpm = "11.17.0"
+node = "26.13.0"
+pnpm = "11.28.0"
 
 [tasks.install]
 description = "pnpm で依存をインストール（入力に変化が無ければスキップ）"

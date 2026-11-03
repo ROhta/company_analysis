@@ -35,7 +35,7 @@ jobs:
       # python のバージョンは analyzeStocks/mise.toml + mise.lock を単一ソースとして mise で導入する
       # （deploy.yml と同じ方針。具体的な版はここに書かない）。
       - name: Setup mise (python)
-        uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5 # v5.0.0
+        uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         with:
           working_directory: analyzeStocks
           version: "2026.7.14"
