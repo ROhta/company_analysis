@@ -77,6 +77,19 @@ def parse_incidents(csv_text):
     return incidents
 
 
+def normalize_code(code):
+    """表示用の4桁コードを J-Quants の5桁形式（末尾0）へ正規化する純粋関数。
+
+    J-Quants の master / bars は 86970 のような5桁コードで返るため、
+    入力が4桁のときは末尾に "0" を付けて API 呼び出し・master 照合に使う。
+    5桁以上はそのまま返す。表示には入力コードをそのまま使うこと。
+    """
+    code = str(code).strip()
+    if len(code) == 4:
+        return code + "0"
+    return code
+
+
 def build_market_index_all(master_rows):
     """master行から {code: (CoName, MktNm)} を作る。市場は限定しない。"""
     index = {}
@@ -114,12 +127,14 @@ def run(client, incidents, window):
     for i, ev in enumerate(incidents, 1):
         print("[info] 事例 {}/{}: {} 公表{}".format(i, total, ev.code, ev.announce_date),
               file=sys.stderr)
+        api_code = normalize_code(ev.code)
         bars = client.bars_daily(
-            ev.code,
+            api_code,
             from_=(ev.announce_date - datetime.timedelta(days=BARS_PAD_DAYS)).strftime("%Y%m%d"),
-            to=(ev.announce_date + datetime.timedelta(days=BARS_PAD_DAYS)).strftime("%Y%m%d"),
+            to=(ev.announce_date + datetime.timedelta(
+                days=BARS_PAD_DAYS + window * 2)).strftime("%Y%m%d"),
         )
-        name, market = market_index.get(ev.code, (ev.name, ""))
+        name, market = market_index.get(api_code, (ev.name, ""))
         if not bars:
             print("[warn] {} 株価barsが空。スキップ".format(ev.code), file=sys.stderr)
             continue
