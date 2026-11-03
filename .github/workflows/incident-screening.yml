@@ -1,0 +1,86 @@
+name: Incident drop screening
+
+# ラベル incident-drop の付いた Issue の起票をトリガーに、
+# Issue 本文の ```csv ブロック（code,announce_date）を入力として
+# 公表後の下落率ランキングを算出し、結果を Issue コメントに投稿する。
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "対象 Issue 番号"
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: incident-screening-${{ github.event.issue.number || inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  screen:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.issue.labels.*.name, 'incident-drop')
+    runs-on: ubuntu-latest
+    env:
+      ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # python のバージョンは analyzeStocks/mise.toml + mise.lock を単一ソースとして mise で導入する
+      # （deploy.yml と同じ方針。具体的な版はここに書かない）。
+      - name: Setup mise (python)
+        uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5 # v5.0.0
+        with:
+          working_directory: analyzeStocks
+          version: "2026.7.14"
+
+      - name: Extract incidents CSV from issue body
+        run: |
+          gh issue view "$ISSUE_NUMBER" --json body -q .body > issue_body.txt
+          python3 - <<'PY'
+          import re, sys
+          body = open("issue_body.txt", encoding="utf-8").read()
+          m = re.search(r"```csv\s*\n(.*?)```", body, re.DOTALL)
+          if not m:
+              print("Issue本文に ```csv ブロックが見つかりません", file=sys.stderr)
+              sys.exit(1)
+          open("analyzeStocks/incidents_input.csv", "w", encoding="utf-8").write(m.group(1).strip() + "\n")
+          print("事例CSVを抽出しました")
+          PY
+
+      - name: Run screening
+        working-directory: analyzeStocks
+        env:
+          JQUANTS_API_KEY: ${{ secrets.JQUANTS_API_KEY }}
+        run: |
+          python screen_incident_drop.py --input incidents_input.csv --plan free | tee result.md
+
+      - name: Comment result on issue
+        if: success()
+        working-directory: analyzeStocks
+        run: |
+          {
+            cat result.md
+            echo ""
+            echo "---"
+            echo "実行: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } > comment.md
+          gh issue comment "$ISSUE_NUMBER" --body-file comment.md
+
+      - name: Comment failure on issue
+        if: failure()
+        run: |
+          {
+            echo "スクリーニングの実行に失敗しました。詳細は Actions のログを確認してください。"
+            echo ""
+            echo "実行: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo ""
+            echo "よくある原因: リポジトリの Secrets に JQUANTS_API_KEY が未登録／Issue本文に \`\`\`csv ブロックが無い／J-Quants のデータ提供範囲外の日付を指定した。"
+          } > failure.md
+          gh issue comment "$ISSUE_NUMBER" --body-file failure.md || true
