@@ -37,6 +37,17 @@ class TestParseIncidents(unittest.TestCase):
         self.assertEqual(incidents[0].name, "トヨタ自動車")
         self.assertEqual(incidents[1].announce_date, datetime.date(2026, 1, 5))
 
+    def test_dedupes_mixed_four_and_five_digit_codes(self):
+        # 5803 と 58030 は同一銘柄として重複排除される（先勝ち）
+        text = (
+            "code,announce_date\n"
+            "5803,2025-12-25\n"
+            "58030,2025-12-25\n"
+        )
+        incidents = sid.parse_incidents(text)
+        self.assertEqual(len(incidents), 1)
+        self.assertEqual(incidents[0].code, "5803")
+
     def test_missing_column_raises(self):
         with self.assertRaises(ValueError):
             sid.parse_incidents("code,date\n7203,2025-12-29\n")
@@ -108,6 +119,13 @@ class TestRun(unittest.TestCase):
         self.assertEqual(results[0]["min_date"], "2026-01-06")
         self.assertAlmostEqual(results[0]["drop_pct"], 12.0)
         self.assertAlmostEqual(results[1]["drop_pct"], 0.4)
+
+    def test_huge_window_raises_overflow(self):
+        # 巨大な window では日付計算が範囲外になり OverflowError（呼び出し側で捕捉する）
+        master = [{"Code": "11110", "CoName": "A社", "MktNm": "プライム"}]
+        incidents = [sid.Incident("1111", datetime.date(2026, 1, 5))]
+        with self.assertRaises(OverflowError):
+            sid.run(FakeClient(master, {}), incidents, window=2000000)
 
     def test_skips_code_without_bars(self):
         master = [{"Code": "1111", "CoName": "下落社", "MktNm": "プライム"}]

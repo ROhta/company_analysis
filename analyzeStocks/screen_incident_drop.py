@@ -67,7 +67,8 @@ def parse_incidents(csv_text):
             announce_date = cl.parse_date(raw_date)
         except ValueError:
             raise ValueError("{}行目: announce_date の形式が不正です: {!r}".format(lineno, raw_date))
-        key = (code, announce_date)
+        # 重複判定は正規化後のコードで行う（5803 と 58030 は同一銘柄）
+        key = (normalize_code(code), announce_date)
         if key in seen:
             continue
         seen.add(key)
@@ -215,6 +216,10 @@ def _run_once(args, incidents, min_interval):
     except (ValueError, KeyError) as e:
         print("[error] APIレスポンスの形式が想定外です: {}".format(e), file=sys.stderr)
         return EXIT_ERROR
+    except OverflowError as e:
+        print("[error] 日付計算が範囲外です（--window が大きすぎる可能性）: {}".format(e),
+              file=sys.stderr)
+        return EXIT_ERROR
 
     print(format_results_markdown(results, args.window))
     return EXIT_OK
@@ -250,6 +255,8 @@ def main(argv=None, sleep=time.sleep):
 
     if args.window < 1:
         parser.error("--window は1以上を指定してください")
+    if args.window > 1000:
+        parser.error("--window は1000以下を指定してください")
     if args.retry_wait < 0:
         parser.error("--retry-wait は0以上を指定してください")
     if args.max_rps is not None and args.max_rps < 0:
