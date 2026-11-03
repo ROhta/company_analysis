@@ -24,12 +24,14 @@
 #
 # 【重要】版数を上げたら必ず次を実行すること:
 #   mise lock node -p linux-arm64,linux-arm64-musl,linux-x64,linux-x64-musl,macos-arm64,macos-x64,windows-x64
+#   mise lock pnpm -p linux-arm64,linux-x64,linux-x64-musl,macos-arm64,windows-x64
 # `mise install` だけだと mise.lock の platforms.* が消えることがある（node 24→26 で実際に
 # 7 件が全消失した）。復元し忘れると CI の `mise install --locked` が linux-x64 で
 # "No lockfile URL found" により失敗する。実行後は platforms.* の数を更新前と必ず比較すること。
-# なお pnpm は macos-x64 の成果物を持たないため 6 件が正常（欠損ではない）。
+# なお pnpm は macos-x64 の成果物を持たないため 5 件が正常（欠損ではない）。
+# linux-arm64-musl は 11.28.1 以降配布されない（起動時に segfault していたため。pnpm#10443）。
 node = "26.13.0"
-pnpm = "11.28.0"
+pnpm = "11.28.10"
 
 [tasks.install]
 description = "pnpm で依存をインストール（入力に変化が無ければスキップ）"
