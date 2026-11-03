@@ -1,5 +1,5 @@
 lockfile_version: '1'
-generated_at: '2026-11-03T14:16:04.765705+00:00'
+generated_at: '2026-11-03T14:22:28.812548+00:00'
 apm_version: 0.35.0
 dependencies:
 - repo_url: rohta/apm-config
@@ -2579,7 +2579,7 @@ deployments:
   owners:
   - .
   active_owner: .
-  content_hash: sha256:c3fc20742ce35fe3ef4b277016a0158fe3fa6112e87291a66cfd7a6faba888ea
+  content_hash: sha256:177691ef3a01fe4d271620a06f70b114e083ba85f38ef4eca65655ccd0a25571
 - kind: uri
   target: mcp
   value: serena
@@ -2624,7 +2624,7 @@ deployments:
   owners:
   - .
   active_owner: .
-  content_hash: sha256:0424bbd505a3659a25746315468dcc987403b1c7db348515b9e7cf2da581b4d8
+  content_hash: sha256:b53610ddff8023ba8a2d66c79c7c7780a7fdaf5de4c249896e345b84229809a3
 - kind: uri
   target: mcp
   value: serena
@@ -2712,7 +2712,7 @@ mcp_configs:
     transport: stdio
     args:
     - -y
-    - flint-chart-mcp@0.4.0
+    - flint-chart-mcp@1.0.1
     registry: false
     command: npx
   serena:
