@@ -78,13 +78,29 @@ Freeでは数回の再試行に分かれて完走するため放置運用（夜�
 - **権利確定日の近似**: 権利確定日（基準日）は決算サマリの会計期末日 `CurPerEn` で近似している。基準日が期末と異なる稀な銘柄（中間配当の実際の基準日が 9/30 以外など）では指定日の算出がズレる場合がある。
 - **終値**: 調整前の生値（V2の `C`）で比較する。株式分割・併合をまたぐ期間では調整後終値（`AdjC`）の利用も検討すること。
 
+## 公表イベント後の下落スクリーニング（screen_incident_drop.py）
+
+- サイバー攻撃・情報漏洩などの公表イベントについて、**公表直前営業日の終値に対し、公表日以降10営業日（`--window` で変更可）以内の最安値までの下落率** を算出し、下落幅の大きい順に Markdown 表で出力する
+- 入力は事例CSV（列: `code,announce_date[,name]`）。配当版と違いイベントは外部（調査）から与える。下落判定は配当版と同じ `calendar_logic.analyze_drop` を使う
+- 対象市場は限定しない（全上場銘柄が対象になりうるため）
+
+```sh
+export JQUANTS_API_KEY=<発行したキー>
+cd analyzeStocks
+python3 screen_incident_drop.py --input incidents.csv --plan free
+```
+
+### GitHub Actions 連携
+
+ラベル `incident-drop` の Issue を起票すると、ワークフロー `incident-screening` が起動し、Issue本文の ```csv ブロックを入力として実行結果（ランキング）を Issue コメントに投稿する。前提として、リポジトリの Secrets に `JQUANTS_API_KEY` の登録が必要。手動での再実行は Actions の workflow_dispatch（Issue番号を指定）からも可能。
+
 ## テスト
 
 ```sh
 cd analyzeStocks && python3 -m unittest discover -p 'test_*.py' -v
 ```
 
-- `calendar_logic.py`（純粋関数）・`jquants_client.py`（APIクライアント）・`screen_dividend_drop.py`（統合）に対する単体テスト。ネットワーク非依存（クライアントは transport 注入でモック）。
+- `calendar_logic.py`（純粋関数）・`jquants_client.py`（APIクライアント）・`screen_dividend_drop.py`（統合）・`screen_incident_drop.py`（統合）に対する単体テスト。ネットワーク非依存（クライアントは transport 注入でモック）。
 
 ## 今後の開発検討事項
 

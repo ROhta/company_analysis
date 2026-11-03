@@ -1,0 +1,31 @@
+name: インシデント下落スクリーニング
+description: 公表イベント（サイバー攻撃・情報漏洩等）後の下落率ランキングを実行する
+title: "[インシデント下落] "
+labels: ["incident-drop"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        このIssueを起票すると GitHub Actions が自動でスクリーニングを実行し、
+        結果（下落率ランキング）をこのIssueへのコメントで返します。
+
+        下の欄に、対象事例を **csv のコードブロック** で入力してください。
+        列は `code,announce_date`（証券コード4桁、公表日 YYYY-MM-DD）が必須で、
+        `name` 列は任意です。
+
+  - type: textarea
+    id: incidents
+    attributes:
+      label: 対象事例（コード,公表日）
+      description: "1行に1事例。公表日は企業が被害を公表した日（適時開示・プレスリリースの日付）です"
+      value: |
+        ```csv
+        code,announce_date,name
+        ```
+      placeholder: |
+        ```csv
+        code,announce_date,name
+        7203,2025-12-29,○○社
+        ```
+    validations:
+      required: true
